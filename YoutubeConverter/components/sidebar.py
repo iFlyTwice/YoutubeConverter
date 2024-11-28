@@ -87,54 +87,52 @@ class SmoothSidebar(ctk.CTkFrame):
     def toggle(self):
         if self.animating:
             return
-        
+            
         self.animating = True
         
         if self.visible:
             def hide_animation():
                 try:
-                    steps = 20
+                    steps = 12  # Reduced steps for faster animation
                     start_x = 1.0 - self.width/self.master.winfo_width()
                     end_x = 1.0
                     
                     for i in range(steps + 1):
                         if not self.animating:
                             break
-                        progress = i / steps
-                        x = start_x + (end_x - start_x) * progress
-                        try:
-                            self.place(relx=x, rely=0, relheight=1, x=2)  # Added x offset
-                            self.update()
-                            time.sleep(0.01)
-                        except Exception:
-                            break
-                    
-                    self.place(relx=1.0, rely=0, relheight=1, x=2)  # Added x offset
-                finally:
+                        t = i / steps
+                        # Use ease-out function for smoother animation
+                        t = 1 - (1 - t) * (1 - t)
+                        current_x = start_x + (end_x - start_x) * t
+                        self.place(relx=current_x, rely=0, relheight=1, x=2)
+                        self.update()
+                        time.sleep(0.001)  # Reduced delay for faster animation
+                        
                     self.visible = False
+                finally:
                     self.animating = False
-
+                    
             threading.Thread(target=hide_animation, daemon=True).start()
         else:
             def show_animation():
                 try:
-                    steps = 20
+                    steps = 12  # Reduced steps for faster animation
                     start_x = 1.0
                     end_x = 1.0 - self.width/self.master.winfo_width()
                     
                     for i in range(steps + 1):
                         if not self.animating:
                             break
-                        progress = i / steps
-                        x = start_x + (end_x - start_x) * progress
-                        try:
-                            self.place(relx=x, rely=0, relheight=1, x=2)  # Added x offset
-                            self.update()
-                            time.sleep(0.01)
-                        except Exception:
-                            break
-                finally:
+                        t = i / steps
+                        # Use ease-out function for smoother animation
+                        t = 1 - (1 - t) * (1 - t)
+                        current_x = start_x + (end_x - start_x) * t
+                        self.place(relx=current_x, rely=0, relheight=1, x=2)
+                        self.update()
+                        time.sleep(0.001)  # Reduced delay for faster animation
+                        
                     self.visible = True
+                finally:
                     self.animating = False
-
+                    
             threading.Thread(target=show_animation, daemon=True).start()
