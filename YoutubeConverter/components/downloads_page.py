@@ -46,6 +46,41 @@ class DownloadsPage(ctk.CTkFrame):
         )
         self.title.pack(side="left", padx=(5, 20))
         
+        # Add search frame
+        search_frame = ctk.CTkFrame(self.header, fg_color="transparent")
+        search_frame.pack(side="left", fill="x", expand=True, padx=10)
+        
+        # Add search entry
+        self.search_entry = ctk.CTkEntry(
+            search_frame,
+            placeholder_text="Search downloads...",
+            height=35,
+            font=ctk.CTkFont(family="Segoe UI", size=13),
+            fg_color="#1e1e1e",
+            border_color="#2d2d2d",
+            text_color="#ffffff",
+            corner_radius=8
+        )
+        self.search_entry.pack(side="left", fill="x", expand=True)
+        
+        # Add clear search button
+        self.clear_button = ctk.CTkButton(
+            search_frame,
+            text="×",
+            width=35,
+            height=35,
+            font=ctk.CTkFont(size=16),
+            fg_color="#1e1e1e",
+            hover_color="#2d2d2d",
+            corner_radius=8,
+            command=self.clear_search
+        )
+        # Initially hide the clear button
+        self.clear_button.pack_forget()
+        
+        # Bind search entry to update results and toggle clear button
+        self.search_entry.bind("<KeyRelease>", self.on_search_change)
+        
         # Add close button
         self.close_button = ctk.CTkButton(
             self.header,
@@ -208,26 +243,7 @@ class DownloadsPage(ctk.CTkFrame):
 
     def add_downloads_sections(self):
         """Add downloads content sections"""
-        downloads_data = self.load_downloads()
-        
-        if not downloads_data["downloads"]:
-            # Show empty state
-            empty_frame = ctk.CTkFrame(self.content, fg_color="#232323", corner_radius=8)
-            empty_frame.pack(fill="x", pady=5)
-            
-            empty_label = ctk.CTkLabel(
-                empty_frame,
-                text="No downloads yet",
-                font=ctk.CTkFont(family="Segoe UI", size=14),
-                text_color="#888888"
-            )
-            empty_label.pack(padx=15, pady=30)
-            return
-        
-        # Recent Downloads Section
-        self.add_section_title("Recent Downloads")
-        for download in reversed(downloads_data["downloads"]):  # Show newest first
-            self.add_download_item(download)
+        self.update_search_results(None)
 
     def open_downloads_folder(self):
         """Open the downloads folder"""
@@ -274,6 +290,74 @@ class DownloadsPage(ctk.CTkFrame):
             self.close_button.configure(state="disabled")
             # Call the callback
             self.on_back_click()
+
+    def clear_search(self):
+        """Clear the search entry and reset results"""
+        self.search_entry.delete(0, "end")
+        self.clear_button.pack_forget()  # Hide clear button
+        self.update_search_results(None)
+    
+    def on_search_change(self, event):
+        """Handle search entry changes"""
+        # Show/hide clear button based on search content
+        if self.search_entry.get():
+            self.clear_button.pack(side="left", padx=(8, 0))
+        else:
+            self.clear_button.pack_forget()
+        
+        # Update search results
+        self.update_search_results(event)
+
+    def update_search_results(self, event):
+        """Update the downloads list based on search query"""
+        # Clear current content
+        for widget in self.content.winfo_children():
+            widget.destroy()
+            
+        # Get search query
+        query = self.search_entry.get().lower().strip()
+        
+        # Load all downloads
+        downloads_data = self.load_downloads()
+        
+        if not downloads_data["downloads"]:
+            self.add_section_title("Recent Downloads")
+            self.show_empty_state()
+            return
+            
+        # Filter downloads based on search query
+        filtered_downloads = []
+        for download in downloads_data["downloads"]:
+            if query:
+                # Search in title, format, and quality
+                if (query in download["title"].lower() or
+                    query in download["format"].lower() or
+                    query in download["quality"].lower()):
+                    filtered_downloads.append(download)
+            else:
+                filtered_downloads.append(download)
+        
+        # Show results
+        if filtered_downloads:
+            self.add_section_title("Recent Downloads")
+            for download in reversed(filtered_downloads):  # Show newest first
+                self.add_download_item(download)
+        else:
+            self.add_section_title("Search Results")
+            self.show_empty_state("No matching downloads found")
+    
+    def show_empty_state(self, message="No downloads yet"):
+        """Show empty state message"""
+        empty_frame = ctk.CTkFrame(self.content, fg_color="#232323", corner_radius=8)
+        empty_frame.pack(fill="x", pady=5)
+        
+        empty_label = ctk.CTkLabel(
+            empty_frame,
+            text=message,
+            font=ctk.CTkFont(family="Segoe UI", size=14),
+            text_color="#888888"
+        )
+        empty_label.pack(padx=15, pady=30)
 
     @staticmethod
     def open(parent_frame, on_back_click):
