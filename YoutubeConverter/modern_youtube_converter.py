@@ -139,7 +139,8 @@ class YoutubeConverterApp(ctk.CTk):
         self.setup_menu()
         
         # Initialize main page
-        MainPage.open(self.main_frame)
+        self.main_page = MainPage(self.main_frame, fg_color=DARKER_COLOR)
+        self.main_page.pack(fill="both", expand=True)
 
     def _save_window_state(self):
         """Save current window state"""
@@ -298,342 +299,79 @@ class YoutubeConverterApp(ctk.CTk):
         # Restore previous window state
         self._restore_window_state()
 
+    def switch_page(self, page_class):
+        """Switch to a new page"""
+        # Clear main frame
+        for widget in self.main_frame.winfo_children():
+            widget.destroy()
+            
+        # Create and pack new page
+        new_page = page_class(self.main_frame, fg_color=DARKER_COLOR)
+        new_page.pack(fill="both", expand=True)
+
     def open_settings(self):
         """Open the settings page"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
-        
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
-
-        # Create settings frame starting from right
-        settings_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        settings_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
-        for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add settings content
-        from components.settings_page import SettingsPage
-        SettingsPage.open(settings_frame, lambda: self.transition_to_main(container, settings_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
             
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                settings_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
-
-    def show_main_page(self):
-        self.transition_to_main()
-
-    def transition_to_main(self, container=None, settings_frame=None):
-        """Transition from settings/about/help back to main page"""
-        try:
-            if container is None:
-                container = self.main_frame
-                
-            # Create main frame starting from left
-            main_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-            main_frame.place(relx=-1.0, rely=0, relwidth=1, relheight=1)
-
-            # Add main page content
-            MainPage.open(main_frame)
-
-            def cleanup_widgets():
-                """Safely cleanup widgets"""
-                try:
-                    if settings_frame and settings_frame.winfo_exists():
-                        settings_frame.destroy()
-                    if container and container.winfo_exists():
-                        for child in container.winfo_children():
-                            if child != main_frame and child.winfo_exists():
-                                child.destroy()
-                except Exception as e:
-                    print(f"Cleanup error: {e}")
-
-            def animate():
-                try:
-                    duration = 0.3
-                    steps = 12
-                    
-                    # Perform the sliding animation
-                    for i in range(steps + 1):
-                        if not container.winfo_exists():
-                            return
-                        t = i / steps
-                        t = 1 - (1 - t) * (1 - t)
-                        
-                        progress = t
-                        if settings_frame and settings_frame.winfo_exists():
-                            settings_frame.place(relx=progress, rely=0, relwidth=1, relheight=1)
-                        main_frame.place(relx=-1+progress, rely=0, relwidth=1, relheight=1)
-                        container.update()
-                        time.sleep(0.001)
-                    
-                    # Clean up old widgets after animation
-                    container.after(100, cleanup_widgets)
-                    
-                except Exception as e:
-                    print(f"Animation error: {e}")
-                    cleanup_widgets()
-
-            # Run animation
-            threading.Thread(target=animate, daemon=True).start()
-            
-        except Exception as e:
-            print(f"Transition error: {e}")
+        self.switch_page(SettingsPage)
 
     def open_downloads(self):
-        """Open the downloads page with animation"""
+        """Open the downloads page"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
         
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
-
-        # Create downloads frame starting from right
-        downloads_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        downloads_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
-        for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add downloads content
-        DownloadsPage.open(downloads_frame, lambda: self.transition_to_main(container, downloads_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
-            
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                downloads_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
+        self.transition_to_page(DownloadsPage)
 
     def open_themes(self):
-        """Open the themes settings with animation"""
+        """Open the themes settings"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
         
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
-
-        # Create themes frame starting from right
-        themes_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        themes_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
-        for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add themes content
-        ThemesPage.open(themes_frame, lambda: self.transition_to_main(container, themes_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
-            
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                themes_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
+        self.transition_to_page(ThemesPage)
 
     def open_statistics(self):
-        """Open the statistics page with animation"""
+        """Open the statistics page"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
         
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
-
-        # Create statistics frame starting from right
-        statistics_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        statistics_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
-        for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add statistics content
-        StatisticsPage.open(statistics_frame, lambda: self.transition_to_main(container, statistics_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
-            
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                statistics_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
+        self.transition_to_page(StatisticsPage)
 
     def open_about(self):
-        """Open the about page with animation"""
+        """Open the about page"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
         
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
-
-        # Create about frame starting from right
-        about_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        about_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
-        for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add about content
-        AboutPage.open(about_frame, lambda: self.transition_to_main(container, about_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
-            
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                about_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
+        self.transition_to_page(AboutPage)
 
     def open_help(self):
-        """Open the help page with animation"""
+        """Open the help page"""
         # Hide the sidebar first
         if self.sidebar.visible:
             self.sidebar.toggle()
         
-        # Create container for animation
-        container = ctk.CTkFrame(self.main_frame, fg_color=DARKER_COLOR)
-        container.pack(fill="both", expand=True)
+        self.transition_to_page(HelpPage)
 
-        # Create help frame starting from right
-        help_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        help_frame.place(relx=1.0, rely=0, relwidth=1, relheight=1)
-
-        # Create main frame for animation
-        current_frame = ctk.CTkFrame(container, fg_color=DARKER_COLOR)
-        current_frame.place(relx=0, rely=0, relwidth=1, relheight=1)
-
-        # Move existing content to current frame
+    def transition_to_page(self, page_class, **kwargs):
+        """Handle clean transition between pages"""
+        # Clear main frame
         for widget in self.main_frame.winfo_children():
-            if widget != container:
-                widget.pack_forget()
-                widget.pack(in_=current_frame, fill="both", expand=True)
-
-        # Add help content
-        HelpPage.open(help_frame, lambda: self.transition_to_main(container, help_frame))
-
-        def animate():
-            duration = 0.3
-            steps = 12
+            widget.destroy()
             
-            for i in range(steps + 1):
-                if not container.winfo_exists():
-                    return
-                t = i / steps
-                t = 1 - (1 - t) * (1 - t)
-                
-                progress = t
-                current_frame.place(relx=-progress, rely=0, relwidth=1, relheight=1)
-                help_frame.place(relx=1-progress, rely=0, relwidth=1, relheight=1)
-                container.update()
-                time.sleep(0.001)
-
-        # Run animation
-        threading.Thread(target=animate, daemon=True).start()
+        # Create and pack new page
+        new_page = page_class(self.main_frame, fg_color=DARKER_COLOR, **kwargs)
+        new_page.pack(fill="both", expand=True)
+        
+        return new_page
+        
+    def show_main_page(self):
+        """Switch to main page"""
+        return self.transition_to_page(MainPage)
 
 if __name__ == "__main__":
     app = YoutubeConverterApp()
