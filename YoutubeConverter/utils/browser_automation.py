@@ -1,6 +1,8 @@
 import json
 import time
 import logging
+import os
+from datetime import datetime
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -49,31 +51,37 @@ class BrowserAutomation:
 
     def _get_cookies_netscape_format(self) -> str:
         """Convert Selenium cookies to Netscape format"""
-        cookies = self.driver.get_cookies()
-        netscape_cookies = "# Netscape HTTP Cookie File\n"
-        netscape_cookies += "# https://curl.haxx.se/rfc/cookie_spec.html\n"
-        netscape_cookies += "# This is a generated file!  Do not edit.\n\n"
-        
-        for cookie in cookies:
-            domain = cookie['domain']
-            if not domain.startswith('.'):
-                domain = '.' + domain
+        try:
+            cookies = self.driver.get_cookies()
+            netscape_cookies = []
             
-            secure = "TRUE" if cookie.get('secure', False) else "FALSE"
-            http_only = "TRUE" if cookie.get('httpOnly', False) else "FALSE"
-            expires = str(int(cookie.get('expiry', int(time.time() + 3600*24*365))))
+            # Required header for Netscape format
+            netscape_cookies.append("# Netscape HTTP Cookie File")
+            netscape_cookies.append("# https://curl.haxx.se/rfc/cookie_spec.html")
+            netscape_cookies.append("# This is a generated file!  Do not edit.")
+            netscape_cookies.append("")
             
-            netscape_cookies += (
-                f"{domain}\t"
-                f"{http_only}\t"
-                f"{cookie.get('path', '/')}\t"
-                f"{secure}\t"
-                f"{expires}\t"
-                f"{cookie['name']}\t"
-                f"{cookie['value']}\n"
-            )
-        
-        return netscape_cookies
+            for cookie in cookies:
+                domain = cookie['domain']
+                # Ensure domain starts with a dot for all non-host-only cookies
+                domain_flag = "TRUE" if domain.startswith('.') else "FALSE"
+                if not domain.startswith('.'):
+                    domain = '.' + domain
+                
+                path = cookie.get('path', '/')
+                secure = "TRUE" if cookie.get('secure', False) else "FALSE"
+                expires = str(int(cookie.get('expiry', int(time.time() + 3600))))
+                name = cookie['name']
+                value = cookie['value']
+                
+                # Format: domain domain_flag path secure_flag expiry name value
+                cookie_line = f"{domain}\t{domain_flag}\t{path}\t{secure}\t{expires}\t{name}\t{value}"
+                netscape_cookies.append(cookie_line)
+            
+            return '\n'.join(netscape_cookies)
+        except Exception as e:
+            self.logger.error(f"Error converting cookies to Netscape format: {e}")
+            return None
 
     def _get_po_token(self) -> str:
         """Get visitor data from YouTube"""
@@ -126,6 +134,73 @@ class BrowserAutomation:
             self.logger.error(f"Error getting visitor data: {e}")
             return None
 
+    def save_auth_info(self, cookies: str, visitor_data: str) -> bool:
+        """Save authentication information to JSON file"""
+        try:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            auth_file = os.path.join(data_dir, 'youtube_auth.json')
+            
+            auth_data = {
+                'last_updated': datetime.now().isoformat(),
+                'cookies': cookies,
+                'visitor_data': visitor_data
+            }
+            
+            with open(auth_file, 'w', encoding='utf-8') as f:
+                json.dump(auth_data, f, indent=4)
+            
+            self.logger.info("Successfully saved authentication information")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error saving authentication information: {e}")
+            return False
+
+    def get_youtube_cookies(self) -> str:
+        """Get YouTube cookies in Netscape format"""
+        try:
+            if not self._setup_driver():
+                raise Exception("Failed to setup Chrome driver")
+
+            # Go to YouTube directly
+            self.driver.get('https://www.youtube.com')
+            time.sleep(2)
+            
+            # Click sign in button if present
+            try:
+                sign_in_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//a[contains(@href, 'accounts.google.com/ServiceLogin')]"))
+                )
+                sign_in_button.click()
+            except:
+                self.logger.info("No sign in button found, might be already at login page")
+
+            # Wait for successful login (look for avatar button)
+            try:
+                WebDriverWait(self.driver, 300).until(
+                    EC.presence_of_element_located((By.ID, "avatar-btn"))
+                )
+            except TimeoutException:
+                self.logger.warning("Login timed out or user cancelled")
+                return None
+
+            # Get cookies and visitor data
+            cookies = self._get_cookies_netscape_format()
+            visitor_data = self._get_po_token()
+
+            # Save authentication information
+            if cookies and visitor_data:
+                self.save_auth_info(cookies, visitor_data)
+
+            return cookies
+
+        except Exception as e:
+            self.logger.error(f"Error getting YouTube cookies: {e}")
+            return None
+        finally:
+            if self.driver:
+                self.driver.quit()
+
     def get_youtube_auth(self) -> tuple[str, str]:
         """Get YouTube cookies and visitor data"""
         try:
@@ -151,32 +226,21 @@ class BrowserAutomation:
                     EC.presence_of_element_located((By.ID, "avatar-btn"))
                 )
             except TimeoutException:
-                raise Exception("Login timeout - please try again")
+                self.logger.warning("Login timed out or user cancelled")
+                return None, None
 
-            # Visit a few pages to ensure cookies are properly set
-            pages = [
-                'https://www.youtube.com',
-                'https://www.youtube.com/feed/trending',
-                'https://www.youtube.com/feed/subscriptions'
-            ]
-            
-            for page in pages:
-                self.driver.get(page)
-                time.sleep(2)
-
-            # Get cookies after successful login
+            # Get cookies and visitor data
             cookies = self._get_cookies_netscape_format()
-
-            # Get visitor data
             visitor_data = self._get_po_token()
 
-            if not visitor_data:
-                self.logger.warning("Could not get visitor data")
+            # Save authentication information
+            if cookies and visitor_data:
+                self.save_auth_info(cookies, visitor_data)
 
             return cookies, visitor_data
 
         except Exception as e:
-            self.logger.error(f"Error in get_youtube_auth: {e}")
+            self.logger.error(f"Error getting YouTube authentication: {e}")
             return None, None
         finally:
             if self.driver:

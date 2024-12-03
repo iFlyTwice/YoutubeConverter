@@ -4,6 +4,7 @@ import yt_dlp
 import json
 from typing import Dict, Optional, Tuple, Callable
 from utils.cookie_manager import cookie_manager
+from utils.browser_automation import BrowserAutomation
 
 class YouTubeAPI:
     def __init__(self) -> None:
@@ -36,13 +37,15 @@ class YouTubeAPI:
             'socket_timeout': 30,
             'retries': 10,
             'file_access_retries': 5,
+            'age_limit': 21,  # Always set age limit to handle age-restricted videos
         }
 
-        # Try to get cookies from browser or file
+        # Always try to use cookie file first
         cookie_file = cookie_manager.get_cookies()
-        if cookie_file:
+        if cookie_file and os.path.exists(cookie_file) and os.path.getsize(cookie_file) > 100:
             opts['cookiefile'] = cookie_file
         else:
+            # If no valid cookie file, try browser cookies as fallback
             opts['cookiesfrombrowser'] = ('chrome', 'firefox', 'edge')
 
         return opts
@@ -85,34 +88,134 @@ class YouTubeAPI:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=download)
         except yt_dlp.utils.ExtractorError as e:
-            if any(msg in str(e).lower() for msg in ["sign in", "age", "confirm your age"]):
-                logging.warning("Access restricted. Attempting with additional options...")
-                # Clear and refresh cookies
+            error_msg = str(e).lower()
+            if any(msg in error_msg for msg in ["sign in", "age", "confirm your age", "bot"]):
+                logging.warning("Access restricted or bot detection. Clearing cookies and retrying...")
+                # Clear cookies to force refresh
                 cookie_manager.clear_cookies()
-                cookie_file = cookie_manager.get_cookies()
-                if cookie_file:
-                    ydl_opts['cookiefile'] = cookie_file
-                    ydl_opts['age_limit'] = 21
-                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                        return ydl.extract_info(url, download=download)
+                # Retry with fresh options
+                ydl_opts = self._get_yt_dlp_opts(download)
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    return ydl.extract_info(url, download=download)
             raise
+
+    def _load_auth_info(self) -> tuple[str, str]:
+        """Load authentication information from JSON file"""
+        try:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            auth_file = os.path.join(data_dir, 'youtube_auth.json')
+            
+            if not os.path.exists(auth_file):
+                logging.warning("No authentication file found")
+                return None, None
+                
+            with open(auth_file, 'r', encoding='utf-8') as f:
+                auth_data = json.load(f)
+                
+            return auth_data.get('cookies'), auth_data.get('visitor_data')
+        except Exception as e:
+            logging.error(f"Error loading authentication information: {e}")
+            return None, None
+
+    def _parse_cookies_to_dict(self, cookies_str: str) -> dict:
+        """Convert cookie string to dictionary format"""
+        try:
+            cookies_dict = {}
+            for line in cookies_str.split('\n'):
+                if line and not line.startswith('#'):
+                    fields = line.split('\t')
+                    if len(fields) >= 7:
+                        name = fields[5]
+                        value = fields[6]
+                        cookies_dict[name] = value
+            return cookies_dict
+        except Exception as e:
+            logging.error(f"Error parsing cookies: {e}")
+            return {}
+
+    def _save_temp_cookies(self, cookies: str) -> str:
+        """Save cookies to a temporary file and return the path"""
+        try:
+            data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+            os.makedirs(data_dir, exist_ok=True)
+            cookie_file = os.path.join(data_dir, 'temp_cookies.txt')
+            
+            # Add Netscape format header
+            cookie_content = "# Netscape HTTP Cookie File\n"
+            cookie_content += "# https://curl.haxx.se/rfc/cookie_spec.html\n"
+            cookie_content += "# This is a generated file!  Do not edit.\n\n"
+            cookie_content += cookies
+            
+            with open(cookie_file, 'w', encoding='utf-8') as f:
+                f.write(cookie_content)
+            
+            return cookie_file
+        except Exception as e:
+            logging.error(f"Error saving temporary cookies: {e}")
+            return None
 
     def get_video_info(self, url: str) -> Optional[Dict]:
         """Get video information from URL"""
+        temp_cookie_file = None
         try:
-            info = self._extract_info(url)
-            return {
-                "id": info.get('id', ''),
-                "title": info.get('title', 'Unknown Title'),
-                "author": info.get('uploader', 'Unknown Channel'),
-                "thumbnail_url": info.get('thumbnail', ''),
-                "length": info.get('duration', 0),
-                "views": info.get('view_count', 0),
-                "published": info.get('upload_date', None)
+            # Try to load authentication info first
+            cookies, visitor_data = self._load_auth_info()
+            
+            if not cookies or not visitor_data:
+                # If no saved auth info, get new ones through browser automation
+                browser = BrowserAutomation()
+                cookies, visitor_data = browser.get_youtube_auth()
+                
+                if not cookies or not visitor_data:
+                    raise Exception("Failed to get authentication information")
+            
+            # Save cookies to temporary file
+            temp_cookie_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'temp_cookies.txt')
+            os.makedirs(os.path.dirname(temp_cookie_file), exist_ok=True)
+            
+            with open(temp_cookie_file, 'w', encoding='utf-8') as f:
+                f.write(cookies)
+            
+            # Configure yt-dlp with cookies and visitor data
+            ydl_opts = {
+                'quiet': True,
+                'no_warnings': True,
+                'extract_flat': True,
+                'cookiefile': temp_cookie_file,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                    'Accept-Language': 'en-us,en;q=0.5',
+                    'X-YouTube-Client-Name': '1',
+                    'X-YouTube-Client-Version': '2.20231127.04.00',
+                    'X-VISITOR-DATA': visitor_data
+                }
             }
+
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                if info:
+                    return {
+                        "id": info.get('id', ''),
+                        "title": info.get('title', 'Unknown Title'),
+                        "author": info.get('uploader', 'Unknown Channel'),
+                        "thumbnail_url": info.get('thumbnail', ''),
+                        "length": info.get('duration', 0),
+                        "views": info.get('view_count', 0),
+                        "published": info.get('upload_date', None)
+                    }
+                return None
+
         except Exception as e:
             logging.error(f"Error getting video info: {e}")
             return None
+        finally:
+            # Clean up temporary cookie file
+            if temp_cookie_file and os.path.exists(temp_cookie_file):
+                try:
+                    os.remove(temp_cookie_file)
+                except Exception as e:
+                    logging.error(f"Error removing temporary cookie file: {e}")
 
     def validate_url(self, url: str) -> Tuple[bool, Optional[Dict], Optional[str]]:
         """Validate YouTube URL and get video info"""
@@ -195,20 +298,18 @@ class YouTubeAPI:
                     ext = "mp3" if format.lower() == "mp3" else "mp4"
                     return os.path.join(output_path, f"{info['title']}.{ext}")
             except yt_dlp.utils.ExtractorError as e:
-                if any(msg in str(e).lower() for msg in ["sign in", "age", "confirm your age"]):
-                    logging.warning("Access restricted. Attempting with additional options...")
-                    # Clear and refresh cookies
+                if any(msg in str(e).lower() for msg in ["sign in", "age", "confirm your age", "bot"]):
+                    logging.warning("Access restricted or bot detection. Clearing cookies and retrying...")
+                    # Clear cookies to force refresh
                     cookie_manager.clear_cookies()
-                    cookie_file = cookie_manager.get_cookies()
-                    if cookie_file:
-                        ydl_opts['cookiefile'] = cookie_file
-                        ydl_opts['age_limit'] = 21
-                        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                            info = ydl.extract_info(url, download=True)
-                            if not info:
-                                raise Exception("Failed to download video")
-                            ext = "mp3" if format.lower() == "mp3" else "mp4"
-                            return os.path.join(output_path, f"{info['title']}.{ext}")
+                    # Retry with fresh options
+                    ydl_opts = self._get_yt_dlp_opts(download=True)
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        info = ydl.extract_info(url, download=True)
+                        if not info:
+                            raise Exception("Failed to download video")
+                        ext = "mp3" if format.lower() == "mp3" else "mp4"
+                        return os.path.join(output_path, f"{info['title']}.{ext}")
                 raise
 
         except Exception as e:

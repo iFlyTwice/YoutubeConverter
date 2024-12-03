@@ -16,6 +16,9 @@ import requests
 from services.youtube_api import api
 from utils.widget_manager import manager as widget_manager
 from utils.settings_manager import SettingsManager
+from utils.ui_helper import UIHelper
+from utils.browser_automation import BrowserAutomation
+from utils.cookie_manager import cookie_manager
 
 # Set up logging
 log_dir = os.path.join(os.path.expanduser("~"), "Downloads", "YouTube Converter", "logs")
@@ -44,6 +47,7 @@ class MainPage(ctk.CTkFrame):
         self.app = app  # Store app reference before super().__init__
         super().__init__(master, **kwargs)
         self.settings_manager = SettingsManager()
+        self.browser_automation = BrowserAutomation()
         
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
@@ -56,7 +60,7 @@ class MainPage(ctk.CTkFrame):
         self.controls_frame = ctk.CTkFrame(self.url_frame, fg_color=DARKER_COLOR)
         self.controls_frame.pack(fill="x", expand=True)
         
-        # URL Entry
+        # URL Entry with validation
         self.url_entry = ctk.CTkEntry(
             self.controls_frame,
             placeholder_text="Enter YouTube URL",
@@ -68,6 +72,7 @@ class MainPage(ctk.CTkFrame):
             corner_radius=10
         )
         self.url_entry.pack(side="left", padx=5, fill="x", expand=True)
+        self.url_entry.bind('<KeyRelease>', self._on_url_change)  # Add URL change handler
         
         # Create a frame for the action buttons to keep them together
         self.buttons_frame = ctk.CTkFrame(self.controls_frame, fg_color=DARKER_COLOR)
@@ -101,25 +106,84 @@ class MainPage(ctk.CTkFrame):
         )
         self.download_btn.pack(side="left", padx=2)
         
-        # Preview Frame
+        # Preview Frame with modern card design
         self.preview_frame = ctk.CTkFrame(
             self,
             fg_color="#1e1e1e",
-            height=250,
+            height=300,  # Increased height for better preview
             corner_radius=15
         )
         self.preview_frame.pack(fill="x", padx=40, pady=30)
         self.preview_frame.pack_propagate(False)
         
-        # Preview placeholder
-        self.preview_label = ctk.CTkLabel(
+        # Create inner preview card
+        self.preview_card = ctk.CTkFrame(
             self.preview_frame,
-            text="Video preview will appear here",
-            text_color="#4d4d4d",
-            font=ctk.CTkFont(family="Segoe UI", size=14)
+            fg_color="#252525",
+            corner_radius=12
         )
-        self.preview_label.pack(expand=True)
+        self.preview_card.pack(fill="both", expand=True, padx=15, pady=15)
         
+        # Thumbnail frame
+        self.thumbnail_frame = ctk.CTkFrame(
+            self.preview_card,
+            fg_color="transparent",
+            height=180
+        )
+        self.thumbnail_frame.pack(fill="x", padx=10, pady=(10, 5))
+        self.thumbnail_frame.pack_propagate(False)
+        
+        # Thumbnail label (will hold the image)
+        self.thumbnail_label = ctk.CTkLabel(
+            self.thumbnail_frame,
+            text="",
+            image=None
+        )
+        self.thumbnail_label.pack(expand=True)
+        
+        # Video info frame
+        self.video_info_frame = ctk.CTkFrame(
+            self.preview_card,
+            fg_color="transparent"
+        )
+        self.video_info_frame.pack(fill="x", padx=15, pady=5)
+        
+        # Title label
+        self.title_label = ctk.CTkLabel(
+            self.video_info_frame,
+            text="Enter a YouTube URL to see preview",
+            text_color="#ffffff",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            wraplength=500,
+            justify="left"
+        )
+        self.title_label.pack(anchor="w")
+        
+        # Channel and duration frame
+        self.metadata_frame = ctk.CTkFrame(
+            self.video_info_frame,
+            fg_color="transparent"
+        )
+        self.metadata_frame.pack(fill="x", pady=(5, 0))
+        
+        # Channel name
+        self.channel_label = ctk.CTkLabel(
+            self.metadata_frame,
+            text="",
+            text_color="#aaaaaa",
+            font=ctk.CTkFont(family="Segoe UI", size=12)
+        )
+        self.channel_label.pack(side="left")
+        
+        # Duration
+        self.duration_label = ctk.CTkLabel(
+            self.metadata_frame,
+            text="",
+            text_color="#aaaaaa",
+            font=ctk.CTkFont(family="Segoe UI", size=12)
+        )
+        self.duration_label.pack(side="right")
+
         # Format and Quality frame
         self.format_controls_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
         self.format_controls_frame.pack(fill="x", padx=40, pady=(0, 30))
@@ -280,6 +344,88 @@ class MainPage(ctk.CTkFrame):
             self.url_entry.insert(0, url)
         except:
             pass
+
+    def update_preview(self, video_info):
+        """Update the preview card with video information"""
+        if not video_info:
+            self.title_label.configure(text="Enter a YouTube URL to see preview")
+            self.channel_label.configure(text="")
+            self.duration_label.configure(text="")
+            self.thumbnail_label.configure(image=None)
+            return
+            
+        # Update title
+        self.title_label.configure(text=video_info.get('title', 'No title available'))
+        
+        # Update channel name
+        channel = video_info.get('channel', 'Unknown channel')
+        self.channel_label.configure(text=channel)
+        
+        # Update duration
+        duration = video_info.get('duration', 0)
+        duration_str = str(timedelta(seconds=duration)) if duration else "Unknown duration"
+        self.duration_label.configure(text=duration_str)
+        
+        # Update thumbnail
+        try:
+            thumbnail_url = video_info.get('thumbnail')
+            if thumbnail_url:
+                response = requests.get(thumbnail_url)
+                img_data = Image.open(BytesIO(response.content))
+                # Resize image to fit the frame while maintaining aspect ratio
+                target_height = 180
+                aspect_ratio = img_data.width / img_data.height
+                target_width = int(target_height * aspect_ratio)
+                img_data = img_data.resize((target_width, target_height), Image.Resampling.LANCZOS)
+                photo = ImageTk.PhotoImage(img_data)
+                self.thumbnail_label.configure(image=photo)
+                self.thumbnail_label.image = photo  # Keep a reference
+        except Exception as e:
+            logging.error(f"Error loading thumbnail: {e}")
+            self.thumbnail_label.configure(image=None)
+
+    def _on_url_change(self, event=None):
+        """Handle URL changes and update preview"""
+        url = self.url_entry.get().strip()
+        if not url:
+            self.update_preview(None)
+            return
+            
+        try:
+            # Check if we need to refresh cookies
+            if not os.path.exists(cookie_manager.cookie_file) or os.path.getsize(cookie_manager.cookie_file) < 100:
+                # Run browser automation to get fresh cookies
+                if not self.browser_automation._setup_driver():
+                    logging.error("Failed to setup browser automation")
+                    return
+                cookies = self.browser_automation.get_youtube_cookies()
+                if cookies:
+                    with open(cookie_manager.cookie_file, 'w') as f:
+                        f.write(cookies)
+                if self.browser_automation.driver:
+                    self.browser_automation.driver.quit()
+            
+            # Now try to get video info with cookies
+            video_info = api.get_video_info(url)
+            if video_info:
+                # Transform video info for preview
+                preview_info = {
+                    'title': video_info.get('title', 'No title available'),
+                    'channel': video_info.get('uploader', video_info.get('channel', 'Unknown channel')),
+                    'duration': video_info.get('duration', 0),
+                    'thumbnail': video_info.get('thumbnail', video_info.get('thumbnail_url'))
+                }
+                self.update_preview(preview_info)
+            else:
+                self.update_preview(None)
+        except Exception as e:
+            logging.error(f"Error updating preview: {e}")
+            self.update_preview(None)
+            # If error is about cookies, try to refresh them
+            if "Sign in to confirm you're not a bot" in str(e):
+                cookie_manager.clear_cookies()  # Clear existing cookies
+                # Trigger URL change again to get fresh cookies
+                self.after(1000, lambda: self._on_url_change(event))
 
     @staticmethod
     def open(parent_frame, app=None):
