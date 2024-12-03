@@ -2,6 +2,7 @@ import customtkinter as ctk
 import os
 import json
 from datetime import datetime
+from YoutubeConverter.utils.ui_helper import UIHelper
 
 DARKER_COLOR = "#1a1a1a"
 ACCENT_COLOR = "#333333"
@@ -20,61 +21,62 @@ class DownloadsPage(ctk.CTkFrame):
         self.configure(fg_color="#1a1a1a", corner_radius=12)
         
         # Create header
-        self.header = ctk.CTkFrame(self, fg_color="#232323", height=60, corner_radius=12)
+        self.header = UIHelper.create_section_frame(
+            self,
+            height=60,
+            fg_color="#232323",
+            corner_radius=12
+        )
         self.header.pack(fill="x", padx=15, pady=(15, 0))
-        self.header.pack_propagate(False)
         
         # Add back button with arrow
-        self.back_button = ctk.CTkButton(
+        self.back_button = UIHelper.create_button(
             self.header,
-            text="←",  # Left arrow
+            text="←",
+            command=self.handle_back_click,
             width=40,
             height=40,
-            font=ctk.CTkFont(size=20),
+            font=("Segoe UI", 20),
             fg_color="transparent",
-            hover_color="#3d3d3d",
-            corner_radius=8,
-            command=self.handle_back_click
+            hover_color="#3d3d3d"
         )
         self.back_button.pack(side="left", padx=10)
         
         # Add title to header
-        self.title = ctk.CTkLabel(
+        title = ctk.CTkLabel(
             self.header,
             text="Downloads",
             font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
             text_color="#ffffff"
         )
-        self.title.pack(side="left", padx=(5, 20))
+        title.pack(side="left", padx=(5, 20))
         
         # Add search frame
         search_frame = ctk.CTkFrame(self.header, fg_color="transparent")
         search_frame.pack(side="left", fill="x", expand=True, padx=10)
         
         # Add search entry
-        self.search_entry = ctk.CTkEntry(
+        self.search_entry = UIHelper.create_entry(
             search_frame,
             placeholder_text="Search downloads...",
+            width=300,
             height=35,
-            font=ctk.CTkFont(family="Segoe UI", size=13),
+            font=("Segoe UI", 13),
             fg_color="#1e1e1e",
-            border_color="#2d2d2d",
-            text_color="#ffffff",
-            corner_radius=8
+            border_color="#2d2d2d"
         )
         self.search_entry.pack(side="left", fill="x", expand=True)
         
         # Add clear search button
-        self.clear_button = ctk.CTkButton(
+        self.clear_button = UIHelper.create_button(
             search_frame,
             text="×",
+            command=self.clear_search,
             width=35,
             height=35,
-            font=ctk.CTkFont(size=16),
+            font=("Segoe UI", 16),
             fg_color="#1e1e1e",
-            hover_color="#2d2d2d",
-            corner_radius=8,
-            command=self.clear_search
+            hover_color="#2d2d2d"
         )
         # Initially hide the clear button
         self.clear_button.pack_forget()
@@ -82,28 +84,14 @@ class DownloadsPage(ctk.CTkFrame):
         # Bind search entry to update results and toggle clear button
         self.search_entry.bind("<KeyRelease>", self.on_search_change)
         
-        # Add close button
-        self.close_button = ctk.CTkButton(
-            self.header,
-            text="×",
-            width=40,
-            height=40,
-            font=ctk.CTkFont(size=20),
-            fg_color="transparent",
-            hover_color="#3d3d3d",
-            corner_radius=8,
-            command=self.handle_back_click
-        )
-        self.close_button.pack(side="right", padx=10)
-
         # Add open folder button
-        self.folder_button = ctk.CTkButton(
+        self.folder_button = UIHelper.create_button(
             self.header,
             text="📂 Open Folder",
-            font=ctk.CTkFont(size=14),
+            command=self.open_downloads_folder,
+            font=("Segoe UI", 14),
             fg_color=ACCENT_COLOR,
-            hover_color=HOVER_COLOR,
-            command=self.open_downloads_folder
+            hover_color=HOVER_COLOR
         )
         self.folder_button.pack(side="right", padx=10)
         
@@ -120,9 +108,12 @@ class DownloadsPage(ctk.CTkFrame):
     
     def add_section_title(self, text):
         """Add a section title to the downloads page"""
-        frame = ctk.CTkFrame(self.content, fg_color="transparent", height=50)
+        frame = UIHelper.create_section_frame(
+            self.content,
+            height=50,
+            fg_color="transparent"
+        )
         frame.pack(fill="x", pady=(20, 10))
-        frame.pack_propagate(False)
         
         label = ctk.CTkLabel(
             frame,
@@ -138,7 +129,10 @@ class DownloadsPage(ctk.CTkFrame):
 
     def add_download_item(self, download):
         """Add a download item to the list"""
-        frame = ctk.CTkFrame(self.content, fg_color="#232323", corner_radius=8)
+        frame = UIHelper.create_section_frame(
+            self.content,
+            fg_color="#232323"
+        )
         frame.pack(fill="x", pady=5)
         
         # Main content frame
@@ -149,46 +143,20 @@ class DownloadsPage(ctk.CTkFrame):
         info_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
         info_frame.pack(side="left", fill="x", expand=True)
         
-        # Title
-        title_label = ctk.CTkLabel(
+        # Create text container for title and info
+        UIHelper.create_text_container(
             info_frame,
-            text=download["title"],
-            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
-            text_color="#ffffff"
+            title=download["title"],
+            description=f"Format: {download['format']} • Quality: {download['quality']} • Size: {self.format_size(download['size'])}",
+            title_font=("Segoe UI", 14),
+            desc_font=("Segoe UI", 12),
+            title_color="#ffffff",
+            desc_color="#888888"
         )
-        title_label.pack(anchor="w")
         
-        # Info row (format, quality, size)
-        info_row = ctk.CTkFrame(info_frame, fg_color="transparent")
-        info_row.pack(fill="x", pady=(5, 0))
-        
-        format_label = ctk.CTkLabel(
-            info_row,
-            text=f"Format: {download['format']}",
-            font=ctk.CTkFont(size=12),
-            text_color="#888888"
-        )
-        format_label.pack(side="left", padx=(0, 15))
-        
-        quality_label = ctk.CTkLabel(
-            info_row,
-            text=f"Quality: {download['quality']}",
-            font=ctk.CTkFont(size=12),
-            text_color="#888888"
-        )
-        quality_label.pack(side="left", padx=(0, 15))
-        
-        size_label = ctk.CTkLabel(
-            info_row,
-            text=f"Size: {self.format_size(download['size'])}",
-            font=ctk.CTkFont(size=12),
-            text_color="#888888"
-        )
-        size_label.pack(side="left")
-        
-        # Date
+        # Add date
         date_label = ctk.CTkLabel(
-            info_row,
+            info_frame,
             text=datetime.fromtimestamp(download["timestamp"]).strftime("%Y-%m-%d %H:%M"),
             font=ctk.CTkFont(size=12),
             text_color="#888888"
@@ -200,26 +168,26 @@ class DownloadsPage(ctk.CTkFrame):
         buttons_frame.pack(side="right", padx=(15, 0))
         
         # Open button
-        open_button = ctk.CTkButton(
+        open_button = UIHelper.create_button(
             buttons_frame,
             text="Open",
+            command=lambda: self.open_file(download["path"]),
             width=70,
             height=30,
             fg_color=ACCENT_COLOR,
-            hover_color=HOVER_COLOR,
-            command=lambda: self.open_file(download["path"])
+            hover_color=HOVER_COLOR
         )
         open_button.pack(side="left", padx=5)
         
         # Delete button
-        delete_button = ctk.CTkButton(
+        delete_button = UIHelper.create_button(
             buttons_frame,
             text="Delete",
+            command=lambda: self.delete_download(download, frame),
             width=70,
             height=30,
-            fg_color="#d32f2f",  # Red color for delete
-            hover_color="#b71c1c",
-            command=lambda: self.delete_download(download, frame)
+            fg_color="#d32f2f",
+            hover_color="#b71c1c"
         )
         delete_button.pack(side="left", padx=5)
 
@@ -288,7 +256,6 @@ class DownloadsPage(ctk.CTkFrame):
         if self.on_back_click:
             # Disable buttons during animation
             self.back_button.configure(state="disabled")
-            self.close_button.configure(state="disabled")
             # Call the callback
             self.on_back_click()
 

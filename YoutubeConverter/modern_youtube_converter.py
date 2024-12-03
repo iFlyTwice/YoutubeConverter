@@ -246,9 +246,19 @@ class YoutubeConverterApp(ctk.CTk):
         for widget in self.main_frame.winfo_children():
             widget.destroy()
             
+        # Prepare common kwargs
+        page_kwargs = {
+            "master": self.main_frame,
+            "fg_color": DARKER_COLOR,
+            "app": self
+        }
+        
+        # Add back button callback for pages that need it
+        if page_class in [DownloadsPage, AboutPage, HelpPage, StatisticsPage, ThemesPage, SettingsPage]:
+            page_kwargs["on_back_click"] = self.show_main_page
+            
         # Create and pack new page
-        new_page = page_class(self.main_frame, fg_color=DARKER_COLOR)
-        new_page.app = self  # Set app reference after creation
+        new_page = page_class(**page_kwargs)
         new_page.pack(fill="both", expand=True)
         
         return new_page

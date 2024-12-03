@@ -8,11 +8,14 @@ HOVER_COLOR = "#404040"
 TEXT_COLOR = "#ffffff"
 
 class AboutPage(ctk.CTkFrame):
-    def __init__(self, master, on_back_click=None, **kwargs):
-        super().__init__(master, **kwargs)
-        
-        # Store callback
+    def __init__(self, master, app=None, on_back_click=None, **kwargs):
+        # Store parameters before super().__init__
+        self.app = app
         self.on_back_click = on_back_click
+        # Remove app and on_back_click from kwargs
+        kwargs.pop('app', None)
+        kwargs.pop('on_back_click', None)
+        super().__init__(master, **kwargs)
         
         # Configure the frame
         self.configure(fg_color="#1a1a1a", corner_radius=12)

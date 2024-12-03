@@ -40,10 +40,10 @@ BG_COLOR = "#2d2d2d"
 DISABLED_COLOR = "#cccccc"
 
 class MainPage(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, app=None, **kwargs):
+        self.app = app  # Store app reference before super().__init__
         super().__init__(master, **kwargs)
         self.settings_manager = SettingsManager()
-        self.app = None  # Will be set by transition_to_page
         
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
@@ -55,17 +55,6 @@ class MainPage(ctk.CTkFrame):
         # Create a sub-frame for all controls to keep them together
         self.controls_frame = ctk.CTkFrame(self.url_frame, fg_color=DARKER_COLOR)
         self.controls_frame.pack(fill="x", expand=True)
-        
-        # Back button
-        self.back_button = ctk.CTkButton(
-            self.controls_frame,
-            text="←",
-            width=40,
-            command=self.on_back_click,
-            fg_color=ACCENT_COLOR,
-            hover_color=HOVER_COLOR
-        )
-        self.back_button.pack(side="left", padx=5)
         
         # URL Entry
         self.url_entry = ctk.CTkEntry(
@@ -291,10 +280,6 @@ class MainPage(ctk.CTkFrame):
             self.url_entry.insert(0, url)
         except:
             pass
-
-    def on_back_click(self):
-        if self.app:
-            self.app.show_main_page()
 
     @staticmethod
     def open(parent_frame, app=None):
