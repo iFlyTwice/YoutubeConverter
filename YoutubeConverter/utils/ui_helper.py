@@ -122,6 +122,41 @@ class UIHelper:
         return entry
 
     @staticmethod
+    def create_label(parent, text, font=("Segoe UI", 12), wraplength=None, justify="left", text_color="#ffffff"):
+        """Create a standardized label with proper wraplength handling"""
+        kwargs = {
+            "master": parent,  # CTkLabel requires 'master' instead of 'parent'
+            "text": text,
+            "font": font,
+            "justify": justify,
+            "text_color": text_color
+        }
+        
+        # Only add wraplength if it's a positive number
+        if wraplength and wraplength > 0:
+            kwargs["wraplength"] = wraplength
+            
+        return ctk.CTkLabel(**kwargs)
+
+    @staticmethod
+    def create_dropdown(parent, values, variable, width=120, height=28):
+        """Create a standardized dropdown menu"""
+        return ctk.CTkOptionMenu(
+            master=parent,  # Use master instead of parent
+            values=values,
+            variable=variable,
+            width=width,
+            height=height,
+            font=("Segoe UI", 12),
+            fg_color="#2d2d2d",
+            button_color="#363636",
+            button_hover_color="#404040",
+            dropdown_fg_color="#2d2d2d",
+            dropdown_hover_color="#404040",
+            corner_radius=6
+        )
+
+    @staticmethod
     def resize_image(image: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
         """
         Resize an image to target size while maintaining aspect ratio
@@ -133,12 +168,12 @@ class UIHelper:
         Returns:
             Resized PIL Image object
         """
-        target_width, target_height = target_size
         original_width, original_height = image.size
+        target_width, target_height = target_size
         
         # Calculate aspect ratios
-        target_aspect = target_width / target_height
         original_aspect = original_width / original_height
+        target_aspect = target_width / target_height
         
         if original_aspect > target_aspect:
             # Image is wider than target - scale by width

@@ -157,7 +157,7 @@ class YoutubeConverterApp(ctk.CTk):
             ("📥", "Downloads", self.open_downloads),
             ("🎨", "Themes", self.open_themes),
             ("📊", "Statistics", self.open_statistics),
-            ("ℹ️", "About", self.open_about),
+            (" ℹ️", "About", self.open_about),
             ("❔", "Help", self.open_help)
         ]
 

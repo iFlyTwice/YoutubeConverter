@@ -112,132 +112,145 @@ class MainPage(ctk.CTkFrame):
             fg_color="#1e1e1e",
             corner_radius=15
         )
-        self.preview_frame.pack(fill="x", padx=40, pady=30)
+        self.preview_frame.pack_forget()  # Hide by default
         
-        # Create inner preview card with dynamic sizing
+        # Create preview card layout
         self.preview_card = ctk.CTkFrame(
-            self.preview_frame,
-            fg_color="#252525",
-            corner_radius=12
+            master=self.preview_frame,
+            fg_color="#1e1e1e",
+            corner_radius=15
         )
-        self.preview_card.pack(fill="both", expand=True, padx=15, pady=15)
+        self.preview_card.pack(fill="x", padx=10, pady=10)
         
-        # Thumbnail frame with dynamic sizing
-        self.thumbnail_frame = ctk.CTkFrame(
-            self.preview_card,
+        # Left side: Thumbnail
+        self.left_frame = ctk.CTkFrame(
+            master=self.preview_card,
             fg_color="transparent"
         )
-        self.thumbnail_frame.pack(fill="x", padx=10, pady=(10, 5))
+        self.left_frame.pack(side="left", fill="y", padx=20, pady=10)
+
+        # Thumbnail
+        self.thumbnail_frame = ctk.CTkFrame(
+            master=self.left_frame,
+            fg_color="transparent",
+            width=180,  # Fixed width for thumbnail
+            height=120  # Fixed height for thumbnail
+        )
+        self.thumbnail_frame.pack(side="top")
+        self.thumbnail_frame.pack_propagate(False)  # Maintain fixed size
         
-        # Thumbnail label (will hold the image)
         self.thumbnail_label = ctk.CTkLabel(
-            self.thumbnail_frame,
+            master=self.thumbnail_frame,
             text="",
             image=None
         )
-        self.thumbnail_label.pack(expand=True)
-        
-        # Video info frame
-        self.video_info_frame = ctk.CTkFrame(
-            self.preview_card,
+        self.thumbnail_label.pack(expand=True, fill="both")
+
+        # Right side: Video information
+        self.info_frame = ctk.CTkFrame(
+            master=self.preview_card,
             fg_color="transparent"
         )
-        self.video_info_frame.pack(fill="x", padx=15, pady=5)
-        
-        # Title label
-        self.title_label = ctk.CTkLabel(
-            self.video_info_frame,
+        self.info_frame.pack(side="left", fill="both", expand=True, padx=(10, 20), pady=10)
+
+        # Video title
+        self.title_label = UIHelper.create_label(
+            self.info_frame,
             text="Enter a YouTube URL to see preview",
-            text_color="#ffffff",
-            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
-            wraplength=500,
-            justify="left"
+            font=("Segoe UI", 14, "bold"),
+            wraplength=300
         )
-        self.title_label.pack(anchor="w")
-        
-        # Channel and duration frame
+        self.title_label.pack(side="top", anchor="w", pady=(0, 5))
+
+        # Channel and duration
         self.metadata_frame = ctk.CTkFrame(
-            self.video_info_frame,
+            master=self.info_frame,
             fg_color="transparent"
         )
-        self.metadata_frame.pack(fill="x", pady=(5, 0))
-        
-        # Channel name
-        self.channel_label = ctk.CTkLabel(
+        self.metadata_frame.pack(side="top", fill="x")
+
+        self.channel_label = UIHelper.create_label(
             self.metadata_frame,
             text="",
-            text_color="#aaaaaa",
-            font=ctk.CTkFont(family="Segoe UI", size=12)
+            font=("Segoe UI", 12),
+            text_color="#aaaaaa"
         )
         self.channel_label.pack(side="left")
-        
-        # Duration
-        self.duration_label = ctk.CTkLabel(
+
+        self.duration_label = UIHelper.create_label(
             self.metadata_frame,
             text="",
-            text_color="#aaaaaa",
-            font=ctk.CTkFont(family="Segoe UI", size=12)
+            font=("Segoe UI", 12),
+            text_color="#aaaaaa"
         )
         self.duration_label.pack(side="right")
 
-        # Format and Quality frame
-        self.format_controls_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
-        self.format_controls_frame.pack(fill="x", padx=40, pady=(0, 30))
-        
-        # Center container for format and quality controls
-        self.format_controls_center = ctk.CTkFrame(self.format_controls_frame, fg_color=DARKER_COLOR)
-        self.format_controls_center.pack(expand=True, anchor="center")
-        
-        # Format dropdown
-        self.format_label = ctk.CTkLabel(
-            self.format_controls_center,
-            text="Format:",
-            font=ctk.CTkFont(family="Segoe UI", size=14),
-            text_color="#ffffff"
+        # Format and quality controls
+        self.controls_frame = ctk.CTkFrame(
+            master=self.info_frame,
+            fg_color="transparent"
         )
-        self.format_label.pack(side="left", padx=(0, 5))
-        
+        self.controls_frame.pack(side="top", fill="x", pady=(15, 0))
+
+        # Format selection
         self.format_var = ctk.StringVar(value="MP4")
-        self.format_dropdown = ctk.CTkOptionMenu(
-            self.format_controls_center,
+        self.format_menu = UIHelper.create_dropdown(
+            self.controls_frame,
             values=["MP4", "MP3"],
             variable=self.format_var,
-            fg_color="#2d2d2d",
-            button_color="#363636",
-            button_hover_color="#404040",
-            width=100,
-            height=35,
-            corner_radius=8,
-            font=ctk.CTkFont(family="Segoe UI", size=13)
+            width=80
         )
-        self.format_dropdown.pack(side="left", padx=(0, 30))
-        
-        # Quality dropdown
-        self.quality_label = ctk.CTkLabel(
-            self.format_controls_center,
-            text="Quality:",
-            font=ctk.CTkFont(family="Segoe UI", size=14),
-            text_color="#ffffff"
-        )
-        self.quality_label.pack(side="left", padx=(0, 5))
-        
+        self.format_menu.pack(side="left", padx=(0, 10))
+
+        # Quality selection
         self.quality_var = ctk.StringVar(value="Highest")
-        self.quality_dropdown = ctk.CTkOptionMenu(
-            self.format_controls_center,
+        self.quality_menu = UIHelper.create_dropdown(
+            self.controls_frame,
             values=["Highest", "1080p", "720p", "480p", "360p"],
             variable=self.quality_var,
-            fg_color="#2d2d2d",
-            button_color="#363636",
-            button_hover_color="#404040",
-            width=100,
-            height=35,
-            corner_radius=8,
-            font=ctk.CTkFont(family="Segoe UI", size=13)
+            width=90
         )
-        self.quality_dropdown.pack(side="left")
+        self.quality_menu.pack(side="left")
+
+        # Download progress
+        self.progress_frame = ctk.CTkFrame(
+            master=self.info_frame,
+            fg_color="transparent"
+        )
+        self.progress_frame.pack(side="top", fill="x", pady=(10, 0))
+
+        # Download button and progress bar in same row
+        self.download_button = ctk.CTkButton(
+            master=self.progress_frame,
+            text="Download",
+            font=("Segoe UI", 12),
+            width=100,
+            height=28,
+            fg_color="#404040",
+            hover_color="#4a4a4a",
+            command=self.start_download
+        )
+        self.download_button.pack(side="left", pady=(0, 5))
+
+        self.progress_bar = ctk.CTkProgressBar(
+            master=self.progress_frame,
+            mode="determinate",
+            height=5,
+            progress_color="#ffb74d"
+        )
+        self.progress_bar.pack(side="left", fill="x", expand=True, padx=(10, 0))
+        self.progress_bar.set(0)
+
+        self.progress_label = UIHelper.create_label(
+            self.progress_frame,
+            text="",
+            font=("Segoe UI", 11),
+            text_color="#aaaaaa"
+        )
+        self.progress_label.pack(side="right", pady=(5, 0))
         
         # Progress bar
-        self.progress_bar = ctk.CTkProgressBar(
+        self.bottom_progress_bar = ctk.CTkProgressBar(
             self,
             mode="determinate",
             height=3,
@@ -245,8 +258,8 @@ class MainPage(ctk.CTkFrame):
             progress_color="#404040",
             corner_radius=2
         )
-        self.progress_bar.pack(fill="x", padx=40, pady=(30, 0), side="bottom")
-        self.progress_bar.set(0)
+        self.bottom_progress_bar.pack(fill="x", padx=40, pady=(30, 0), side="bottom")
+        self.bottom_progress_bar.set(0)
         
         # Active downloads
         self.active_downloads = {}
@@ -341,6 +354,41 @@ class MainPage(ctk.CTkFrame):
         except:
             pass
 
+    def fetch_video_info(self, url):
+        """Fetch video information using yt-dlp"""
+        try:
+            # Extract video info using the YouTube API
+            info = api.get_video_info(url)
+            
+            if not info:
+                return None
+                
+            # Format the video information
+            video_info = {
+                'id': info.get('id', ''),
+                'title': info.get('title', 'Unknown Title'),
+                'channel': info.get('author', 'Unknown Channel'),
+                'duration': info.get('duration', 0),
+                'thumbnail_url': info.get('thumbnail', f"https://img.youtube.com/vi/{info.get('id', '')}/maxresdefault.jpg"),
+                'formats': info.get('formats', [])
+            }
+            
+            # Update the UI with the fetched information
+            self.after(0, lambda: self.update_preview(video_info))
+            return video_info
+            
+        except Exception as e:
+            logging.error(f"Error fetching video info: {e}")
+            self.after(0, lambda: self.show_error("Error fetching video information"))
+            return None
+
+    def show_error(self, message):
+        """Show error message in the preview frame"""
+        self.title_label.configure(text=message)
+        self.channel_label.configure(text="")
+        self.duration_label.configure(text="")
+        self.thumbnail_label.configure(image=None)
+        
     def update_preview(self, video_info):
         """Update the preview card with video information"""
         if not video_info:
@@ -360,33 +408,15 @@ class MainPage(ctk.CTkFrame):
                     # Calculate the aspect ratio of the original image
                     aspect_ratio = img.width / img.height
                     
-                    # Get window dimensions
-                    window_width = self.winfo_width()
-                    window_height = self.winfo_height()
-                    
-                    # Set minimum and maximum dimensions
-                    min_width = 400
-                    max_width = 1200
-                    min_height = 225  # 16:9 aspect ratio minimum
-                    max_height = 675  # 16:9 aspect ratio maximum
-                    
-                    # Calculate target width (70% of window width, within bounds)
-                    target_width = min(max_width, max(min_width, int(window_width * 0.7)))
-                    
-                    # Calculate target height based on aspect ratio
+                    # Set fixed dimensions for thumbnail
+                    target_width = 180  # Fixed width for thumbnail
                     target_height = int(target_width / aspect_ratio)
                     
-                    # Ensure height is within bounds
+                    # Ensure height is reasonable
+                    max_height = 120
                     if target_height > max_height:
                         target_height = max_height
                         target_width = int(target_height * aspect_ratio)
-                    elif target_height < min_height:
-                        target_height = min_height
-                        target_width = int(target_height * aspect_ratio)
-                    
-                    # Add padding to prevent content from being cut off
-                    padding_x = 40
-                    padding_y = 30
                     
                     # Resize image maintaining aspect ratio
                     img = UIHelper.resize_image(img, (target_width, target_height))
@@ -399,15 +429,10 @@ class MainPage(ctk.CTkFrame):
                     self.thumbnail_label.configure(image=ctk_img)
                     self.current_thumbnail = ctk_img
                     
-                    # Update frame sizes with padding
-                    self.thumbnail_frame.configure(width=target_width + padding_x, height=target_height)
-                    self.preview_frame.configure(width=target_width + padding_x * 2, 
-                                              height=target_height + padding_y * 2 + 120)  # Add padding for text
+                    # Configure frame sizes
+                    self.thumbnail_frame.configure(width=target_width + 20)  # Add padding
                     
-                    # Ensure the preview frame maintains its size
-                    self.preview_frame.pack_propagate(False)
-            
-            # Update other video information
+            # Update video information
             title = video_info.get('title', 'Unknown Title')
             channel = video_info.get('channel', 'Unknown Channel')
             duration = video_info.get('duration', 0)
@@ -417,14 +442,54 @@ class MainPage(ctk.CTkFrame):
             if duration_str.startswith('0:'):
                 duration_str = duration_str[2:]  # Remove leading 0: if less than an hour
             
+            # Update labels
             self.title_label.configure(text=title)
             self.channel_label.configure(text=channel)
             self.duration_label.configure(text=duration_str)
+            
+            # Show preview frame
+            self.preview_frame.pack(fill="x", padx=20, pady=15)
             
         except Exception as e:
             logging.error(f"Error updating preview: {str(e)}")
             self.title_label.configure(text="Error loading video preview")
             
+    def process_url(self, url):
+        """Process the YouTube URL and update the preview"""
+        try:
+            # Show loading state
+            self.title_label.configure(text="Loading video information...")
+            self.channel_label.configure(text="")
+            self.duration_label.configure(text="")
+            
+            def fetch_info():
+                try:
+                    # Try to get video info
+                    video_info = api.get_video_info(url)
+                    if video_info:
+                        # Transform video info for preview
+                        preview_info = {
+                            'title': video_info.get('title', 'Unknown Title'),
+                            'channel': video_info.get('author', 'Unknown Channel'),
+                            'duration': video_info.get('duration', 0),
+                            'thumbnail_url': video_info.get('thumbnail', '')
+                        }
+                        
+                        # Update UI in main thread
+                        self.after(0, lambda: self.update_preview(preview_info))
+                    else:
+                        self.after(0, lambda: self.show_error("Could not fetch video information"))
+                except Exception as e:
+                    logging.error(f"Error processing URL: {e}")
+                    self.after(0, lambda: self.show_error("Error loading video"))
+            
+            # Start fetch in background
+            threading.Thread(target=fetch_info, daemon=True).start()
+            
+        except Exception as e:
+            logging.error(f"Error in process_url: {e}")
+            self.show_error("Invalid URL format")
+
     def _on_url_change(self, event=None):
         """Handle URL changes and update preview"""
         url = self.url_entry.get().strip()
@@ -447,12 +512,12 @@ class MainPage(ctk.CTkFrame):
                     self.browser_automation.driver.quit()
             
             # Now try to get video info with cookies
-            video_info = api.get_video_info(url)
+            video_info = self.fetch_video_info(url)
             if video_info:
                 # Transform video info for preview
                 preview_info = {
                     'title': video_info.get('title', 'No title available'),
-                    'author': video_info.get('uploader', video_info.get('channel', 'Unknown channel')),
+                    'author': video_info.get('author', video_info.get('channel', 'Unknown channel')),
                     'length': video_info.get('duration', 0),
                     'thumbnail_url': video_info.get('thumbnail', video_info.get('thumbnail_url'))
                 }
