@@ -18,16 +18,3 @@ class AnimatedButton(ctk.CTkButton):
 
     def on_leave(self, event):
         self.configure(fg_color=self.original_color)
-
-class HamburgerButton(AnimatedButton):
-    def __init__(self, *args, **kwargs):
-        super().__init__(
-            *args,
-            text="☰",
-            width=40,
-            height=40,
-            corner_radius=8,
-            font=ctk.CTkFont(size=20, weight="bold"),
-            tooltip_text="Menu Options",
-            **kwargs
-        )

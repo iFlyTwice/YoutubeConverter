@@ -9,11 +9,12 @@ HOVER_COLOR = "#404040"
 TEXT_COLOR = "#ffffff"
 
 class DownloadsPage(ctk.CTkFrame):
-    def __init__(self, master, on_back_click=None, **kwargs):
+    def __init__(self, master, app, on_back_click=None, **kwargs):
         super().__init__(master, **kwargs)
         
         # Store callback
         self.on_back_click = on_back_click
+        self.app = app
         
         # Configure the frame
         self.configure(fg_color="#1a1a1a", corner_radius=12)
@@ -360,10 +361,10 @@ class DownloadsPage(ctk.CTkFrame):
         empty_label.pack(padx=15, pady=30)
 
     @staticmethod
-    def open(parent_frame, on_back_click):
+    def open(parent_frame, app, on_back_click):
         """Open the downloads page"""
         for widget in parent_frame.winfo_children():
             widget.destroy()
-        downloads_frame = DownloadsPage(parent_frame, on_back_click=on_back_click)
+        downloads_frame = DownloadsPage(parent_frame, app, on_back_click=on_back_click)
         downloads_frame.pack(fill="both", expand=True)
         return downloads_frame

@@ -5,7 +5,6 @@ import json
 from .notification_popup import NotificationPopup
 from .custom_dropdown import CustomDropdown
 from utils.settings_manager import SettingsManager
-from utils.ui_helper import UIHelper
 from utils.event_manager import EventManager
 from threads.settings_page_thread import SettingsPageThread
 import threading
@@ -23,11 +22,15 @@ CORNER_RADIUS = 8
 class SettingsPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
+        self.app = None  # Will be set by transition_to_page
         
-        # Initialize managers and thread
+        # Initialize managers
         self.settings_manager = SettingsManager()
         self.event_manager = EventManager()
-        self.thread = SettingsPageThread(self)
+        
+        # Initialize thread
+        self.thread = SettingsPageThread()
+        self.thread.register_callback("load_settings", self.load_settings)
         self.thread.start()
         
         # Track settings state
@@ -69,7 +72,6 @@ class SettingsPage(ctk.CTkFrame):
         # Add settings sections
         self.add_settings_sections()
         
-        # Load initial settings
         self.load_initial_settings()
 
     def add_settings_sections(self):
@@ -335,8 +337,51 @@ class SettingsPage(ctk.CTkFrame):
         separator = ctk.CTkFrame(self.content, fg_color=ACCENT_COLOR, height=1)
         separator.pack(fill="x", pady=(5, 10))
 
+    def load_settings(self):
+        """Load settings from the settings manager"""
+        try:
+            settings = self.settings_manager.load_settings()
+            self.update_ui_with_settings(settings)
+            return settings
+        except Exception as e:
+            logger.error(f"Error loading settings: {str(e)}")
+            return None
+
+    def update_ui_with_settings(self, settings):
+        """Update UI elements with loaded settings"""
+        if not settings:
+            return
+            
+        # Update download path if available
+        if 'download_path' in settings:
+            self.controls['download_path'].delete(0, 'end')
+            self.controls['download_path'].insert(0, settings['download_path'])
+            
+        # Update quality selection if available
+        if 'video_quality' in settings:
+            self.controls['video_quality'].set(settings['video_quality'])
+            
+        # Update format selection if available
+        if 'default_format' in settings:
+            self.controls['default_format'].set(settings['default_format'])
+            
+        # Update audio format selection if available
+        if 'audio_format' in settings:
+            self.controls['audio_format'].set(settings['audio_format'])
+            
+        # Update audio quality selection if available
+        if 'audio_quality' in settings:
+            self.controls['audio_quality'].set(settings['audio_quality'])
+            
+        # Update always on top switch if available
+        if 'always_on_top' in settings:
+            if settings['always_on_top']:
+                self.controls['always_on_top'].select()
+            else:
+                self.controls['always_on_top'].deselect()
+
     def load_initial_settings(self):
-        """Load and apply initial settings to controls"""
+        """Load initial settings in a background thread"""
         self.thread.add_task(("load_settings", None))
 
     def save_settings(self):

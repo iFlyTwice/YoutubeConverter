@@ -43,55 +43,74 @@ class MainPage(ctk.CTkFrame):
     def __init__(self, master, **kwargs):
         super().__init__(master, **kwargs)
         self.settings_manager = SettingsManager()
+        self.app = None  # Will be set by transition_to_page
         
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
 
         # URL Entry frame with centered content
         self.url_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
-        self.url_frame.pack(fill="x", padx=40, pady=(20, 10))
+        self.url_frame.pack(fill="x", padx=10, pady=(20, 10))
+        
+        # Create a sub-frame for all controls to keep them together
+        self.controls_frame = ctk.CTkFrame(self.url_frame, fg_color=DARKER_COLOR)
+        self.controls_frame.pack(fill="x", expand=True)
+        
+        # Back button
+        self.back_button = ctk.CTkButton(
+            self.controls_frame,
+            text="←",
+            width=40,
+            command=self.on_back_click,
+            fg_color=ACCENT_COLOR,
+            hover_color=HOVER_COLOR
+        )
+        self.back_button.pack(side="left", padx=5)
         
         # URL Entry
         self.url_entry = ctk.CTkEntry(
-            self.url_frame,
+            self.controls_frame,
             placeholder_text="Enter YouTube URL",
             height=45,
-            width=600,
             font=ctk.CTkFont(family="Segoe UI", size=14),
             fg_color="#1e1e1e",
             border_color="#2d2d2d",
             text_color="#ffffff",
             corner_radius=10
         )
-        self.url_entry.pack(side="left", padx=(0, 10), expand=True)
+        self.url_entry.pack(side="left", padx=5, fill="x", expand=True)
+        
+        # Create a frame for the action buttons to keep them together
+        self.buttons_frame = ctk.CTkFrame(self.controls_frame, fg_color=DARKER_COLOR)
+        self.buttons_frame.pack(side="left", padx=5)
         
         # Paste button
         self.paste_btn = ctk.CTkButton(
-            self.url_frame,
+            self.buttons_frame,
             text="📋",
             width=45,
             height=45,
             fg_color="#2d2d2d",
             hover_color="#363636",
             corner_radius=10,
-            font=ctk.CTkFont(size=20),
+            font=ctk.CTkFont(size=16),
             command=self.paste_url
         )
-        self.paste_btn.pack(side="left", padx=(0, 10))
+        self.paste_btn.pack(side="left", padx=2)
         
         # Download Button
         self.download_btn = ctk.CTkButton(
-            self.url_frame,
-            text="Download",
-            width=120,
+            self.buttons_frame,
+            text="📥",
+            width=45,
             height=45,
             fg_color="#2d2d2d",
             hover_color="#363636",
             corner_radius=10,
-            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            font=ctk.CTkFont(size=16),
             command=self.start_download
         )
-        self.download_btn.pack(side="left")
+        self.download_btn.pack(side="left", padx=2)
         
         # Preview Frame
         self.preview_frame = ctk.CTkFrame(
@@ -113,16 +132,16 @@ class MainPage(ctk.CTkFrame):
         self.preview_label.pack(expand=True)
         
         # Format and Quality frame
-        self.controls_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
-        self.controls_frame.pack(fill="x", padx=40, pady=(0, 30))
+        self.format_controls_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
+        self.format_controls_frame.pack(fill="x", padx=40, pady=(0, 30))
         
         # Center container for format and quality controls
-        self.controls_center = ctk.CTkFrame(self.controls_frame, fg_color=DARKER_COLOR)
-        self.controls_center.pack(expand=True, anchor="center")
+        self.format_controls_center = ctk.CTkFrame(self.format_controls_frame, fg_color=DARKER_COLOR)
+        self.format_controls_center.pack(expand=True, anchor="center")
         
         # Format dropdown
         self.format_label = ctk.CTkLabel(
-            self.controls_center,
+            self.format_controls_center,
             text="Format:",
             font=ctk.CTkFont(family="Segoe UI", size=14),
             text_color="#ffffff"
@@ -131,7 +150,7 @@ class MainPage(ctk.CTkFrame):
         
         self.format_var = ctk.StringVar(value="MP4")
         self.format_dropdown = ctk.CTkOptionMenu(
-            self.controls_center,
+            self.format_controls_center,
             values=["MP4", "MP3"],
             variable=self.format_var,
             fg_color="#2d2d2d",
@@ -146,7 +165,7 @@ class MainPage(ctk.CTkFrame):
         
         # Quality dropdown
         self.quality_label = ctk.CTkLabel(
-            self.controls_center,
+            self.format_controls_center,
             text="Quality:",
             font=ctk.CTkFont(family="Segoe UI", size=14),
             text_color="#ffffff"
@@ -155,7 +174,7 @@ class MainPage(ctk.CTkFrame):
         
         self.quality_var = ctk.StringVar(value="Highest")
         self.quality_dropdown = ctk.CTkOptionMenu(
-            self.controls_center,
+            self.format_controls_center,
             values=["Highest", "1080p", "720p", "480p", "360p"],
             variable=self.quality_var,
             fg_color="#2d2d2d",
@@ -273,8 +292,12 @@ class MainPage(ctk.CTkFrame):
         except:
             pass
 
+    def on_back_click(self):
+        if self.app:
+            self.app.show_main_page()
+
     @staticmethod
-    def open(parent_frame):
+    def open(parent_frame, app=None):
         """Open the main page"""
         main_page = MainPage(parent_frame)
         main_page.pack(fill="both", expand=True)

@@ -4,5 +4,11 @@
         "accent": "#2d572f",
         "hover": "#3d673f",
         "text": "#ffffff"
+    },
+    "window": {
+        "width": 800,
+        "height": 500,
+        "x": null,
+        "y": null
     }
 }

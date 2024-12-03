@@ -1,4 +1,4 @@
-from .buttons import AnimatedButton, HamburgerButton
+from .buttons import AnimatedButton
 from .tooltip import ModernTooltip
 
-__all__ = ['AnimatedButton', 'HamburgerButton', 'ModernTooltip']
+__all__ = ['AnimatedButton', 'ModernTooltip']

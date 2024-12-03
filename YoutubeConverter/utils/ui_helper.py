@@ -1,0 +1,121 @@
+import customtkinter as ctk
+from typing import Optional, Union, Tuple, Any
+
+
+class UIHelper:
+    """Helper class for common UI operations and styling"""
+    
+    @staticmethod
+    def create_section_frame(
+        master: Any,
+        height: int = 70,
+        fg_color: str = "#232323",
+        corner_radius: int = 8
+    ) -> ctk.CTkFrame:
+        """Create a section frame with standard styling"""
+        frame = ctk.CTkFrame(
+            master,
+            fg_color=fg_color,
+            height=height,
+            corner_radius=corner_radius
+        )
+        frame.pack(fill="x", pady=5)
+        frame.pack_propagate(False)
+        return frame
+
+    @staticmethod
+    def create_text_container(
+        master: Any,
+        title: str,
+        description: str,
+        title_font: Optional[tuple] = None,
+        desc_font: Optional[tuple] = None,
+        title_color: str = "#ffffff",
+        desc_color: str = "#888888"
+    ) -> ctk.CTkFrame:
+        """Create a text container with title and description"""
+        if title_font is None:
+            title_font = ("Segoe UI", 13)
+        if desc_font is None:
+            desc_font = ("Segoe UI", 11)
+
+        text_frame = ctk.CTkFrame(master, fg_color="transparent")
+        text_frame.pack(side="left", fill="both", expand=True, padx=15, pady=10)
+        
+        title_label = ctk.CTkLabel(
+            text_frame,
+            text=title,
+            font=ctk.CTkFont(family=title_font[0], size=title_font[1]),
+            text_color=title_color
+        )
+        title_label.pack(anchor="w")
+        
+        desc_label = ctk.CTkLabel(
+            text_frame,
+            text=description,
+            font=ctk.CTkFont(family=desc_font[0], size=desc_font[1]),
+            text_color=desc_color
+        )
+        desc_label.pack(anchor="w")
+        
+        return text_frame
+
+    @staticmethod
+    def create_button(
+        master: Any,
+        text: str,
+        command: callable,
+        width: int = 70,
+        height: int = 32,
+        font: Optional[tuple] = None,
+        fg_color: str = "#343638",
+        hover_color: str = "#2B2B2B",
+        text_color: str = "#ffffff",
+        corner_radius: int = 8
+    ) -> ctk.CTkButton:
+        """Create a button with standard styling"""
+        if font is None:
+            font = ("Segoe UI", 12)
+            
+        button = ctk.CTkButton(
+            master,
+            text=text,
+            command=command,
+            width=width,
+            height=height,
+            font=ctk.CTkFont(family=font[0], size=font[1]),
+            fg_color=fg_color,
+            hover_color=hover_color,
+            text_color=text_color,
+            corner_radius=corner_radius
+        )
+        return button
+
+    @staticmethod
+    def create_entry(
+        master: Any,
+        width: int = 200,
+        height: int = 32,
+        font: Optional[tuple] = None,
+        placeholder_text: str = "",
+        fg_color: str = "#343638",
+        border_color: str = "#404040",
+        text_color: str = "#ffffff",
+        corner_radius: int = 8
+    ) -> ctk.CTkEntry:
+        """Create an entry field with standard styling"""
+        if font is None:
+            font = ("Segoe UI", 12)
+            
+        entry = ctk.CTkEntry(
+            master,
+            width=width,
+            height=height,
+            font=ctk.CTkFont(family=font[0], size=font[1]),
+            placeholder_text=placeholder_text,
+            fg_color=fg_color,
+            border_color=border_color,
+            text_color=text_color,
+            corner_radius=corner_radius
+        )
+        return entry
