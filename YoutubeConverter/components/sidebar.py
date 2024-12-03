@@ -15,6 +15,7 @@ class SmoothSidebar(ctk.CTkFrame):
         self.width = width
         self.visible = False
         self.animating = False
+        self.active_container = None  # Track active menu item
         
         # Configure the sidebar with a darker theme
         self.configure(fg_color="#1a1a1a")
@@ -90,35 +91,71 @@ class SmoothSidebar(ctk.CTkFrame):
 
     def add_menu_item(self, icon, text, command=None):
         """Add a styled menu item to the sidebar"""
-        # Create frame for better layout control
-        frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        frame.pack(fill="x", pady=4)
-
-        # Create icon label
-        icon_label = ctk.CTkLabel(
-            frame,
-            text=icon,
-            font=ctk.CTkFont(family="Segoe UI", size=16),
-            text_color="#ffffff",
-            width=25
-        )
-        icon_label.pack(side="left", padx=(10, 5))
-
-        # Create button
-        button = ctk.CTkButton(
-            frame,
-            text=text,
-            command=command,
-            font=ctk.CTkFont(family="Segoe UI", size=14),
+        # Create container frame for the button
+        container = UIHelper.create_section_frame(
+            self.content_frame,
+            height=45,
             fg_color="transparent",
-            text_color="#e0e0e0",
-            hover_color="#2d2d2d",
-            anchor="w",
-            height=40,
-            corner_radius=8
+            corner_radius=0
         )
-        button.pack(fill="x", padx=(0, 10))
-        return button
+        container.pack(fill="x", pady=1)
+        
+        # Create grid layout with minimal spacing
+        container.grid_columnconfigure(0, weight=0, minsize=30)
+        container.grid_columnconfigure(1, weight=1)
+        
+        # Add icon with larger font size for emojis
+        icon_size = 18
+        if icon == "🎬":
+            icon_size = 22
+            
+        icon_label = ctk.CTkLabel(
+            container,
+            text=icon,
+            font=("Segoe UI", icon_size),
+            text_color="#ffffff",
+            width=30
+        )
+        icon_label.grid(row=0, column=0, padx=(10, 0))
+        
+        # Add text right next to icon with consistent padding
+        text_label = ctk.CTkLabel(
+            container,
+            text=text,
+            font=("Segoe UI", 14),
+            text_color="#ffffff",
+            anchor="w"
+        )
+        text_label.grid(row=0, column=1, sticky="w", padx=(5, 10))
+        
+        def handle_click(e):
+            if self.active_container:
+                self.active_container.configure(fg_color="transparent")
+            container.configure(fg_color="#2e2e2e")
+            self.active_container = container
+            if command:
+                command()
+        
+        # Make the entire container clickable
+        for widget in [container, icon_label, text_label]:
+            widget.bind("<Button-1>", handle_click)
+            widget.bind("<Enter>", lambda e: container.configure(fg_color="#2e2e2e" if container != self.active_container else "#2e2e2e"))
+            widget.bind("<Leave>", lambda e: container.configure(fg_color="transparent" if container != self.active_container else "#2e2e2e"))
+            widget.configure(cursor="hand2")
+        
+        return container
+
+    def setup_menu_items(self, app):
+        """Set up all menu items with emojis"""
+        # Add menu items with emojis
+        self.add_menu_item("🎬", "Clipping", app.open_clipping)
+        self.add_menu_item("🔄", "Converter", app.show_main_page)
+        self.add_menu_item("📥", "Downloads", app.open_downloads)
+        self.add_menu_item("⚙️", "Settings", app.open_settings)
+        self.add_menu_item("🎨", "Themes", app.open_themes)
+        self.add_menu_item("📊", "Statistics", app.open_statistics)
+        self.add_menu_item("ℹ️", "About", app.open_about)
+        self.add_menu_item("❔", "Help", app.open_help)
 
     def on_sidebar_click(self, event):
         return "break"
@@ -145,7 +182,7 @@ class SmoothSidebar(ctk.CTkFrame):
         if self.visible:
             def hide_animation():
                 try:
-                    steps = 12  # Reduced steps for faster animation
+                    steps = 12
                     start_x = 1.0 - self.width/self.master.winfo_width()
                     end_x = 1.0
                     
@@ -153,12 +190,11 @@ class SmoothSidebar(ctk.CTkFrame):
                         if not self.animating:
                             break
                         t = i / steps
-                        # Use ease-out function for smoother animation
                         t = 1 - (1 - t) * (1 - t)
                         current_x = start_x + (end_x - start_x) * t
                         self.place(relx=current_x, rely=0, relheight=1, x=2)
                         self.update()
-                        time.sleep(0.001)  # Reduced delay for faster animation
+                        time.sleep(0.001)
                         
                     self.visible = False
                 finally:
@@ -168,7 +204,7 @@ class SmoothSidebar(ctk.CTkFrame):
         else:
             def show_animation():
                 try:
-                    steps = 12  # Reduced steps for faster animation
+                    steps = 12
                     start_x = 1.0
                     end_x = 1.0 - self.width/self.master.winfo_width()
                     
@@ -176,12 +212,11 @@ class SmoothSidebar(ctk.CTkFrame):
                         if not self.animating:
                             break
                         t = i / steps
-                        # Use ease-out function for smoother animation
                         t = 1 - (1 - t) * (1 - t)
                         current_x = start_x + (end_x - start_x) * t
                         self.place(relx=current_x, rely=0, relheight=1, x=2)
                         self.update()
-                        time.sleep(0.001)  # Reduced delay for faster animation
+                        time.sleep(0.001)
                         
                     self.visible = True
                 finally:

@@ -48,6 +48,7 @@ class MainPage(ctk.CTkFrame):
         super().__init__(master, **kwargs)
         self.settings_manager = SettingsManager()
         self.browser_automation = BrowserAutomation()
+        self.active_page = "home"  # Track current active page
         
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
@@ -106,6 +107,51 @@ class MainPage(ctk.CTkFrame):
         )
         self.download_btn.pack(side="left", padx=2)
         
+        # Home page container
+        self.home_frame = ctk.CTkFrame(
+            master=self,
+            fg_color="transparent"
+        )
+
+        # Welcome header
+        self.header_label = UIHelper.create_label(
+            self.home_frame,
+            text="Welcome to YouTube Clipping",
+            font=("Segoe UI", 24, "bold")
+        )
+        self.header_label.pack(pady=(30, 20))
+
+        # Description
+        self.description_label = UIHelper.create_label(
+            self.home_frame,
+            text="Convert YouTube videos to MP3 or MP4 with ease.\nClip and customize your favorite moments!",
+            font=("Segoe UI", 14),
+            justify="center"
+        )
+        self.description_label.pack(pady=(0, 30))
+
+        # Recent downloads section
+        self.recent_frame = ctk.CTkFrame(
+            master=self.home_frame,
+            fg_color="#1e1e1e",
+            corner_radius=15
+        )
+        self.recent_frame.pack(fill="x", padx=20, pady=10)
+
+        self.recent_label = UIHelper.create_label(
+            self.recent_frame,
+            text="Recent Downloads",
+            font=("Segoe UI", 16, "bold")
+        )
+        self.recent_label.pack(pady=15)
+
+        # Placeholder for recent downloads list
+        self.recent_list = ctk.CTkFrame(
+            master=self.recent_frame,
+            fg_color="transparent"
+        )
+        self.recent_list.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+
         # Preview Frame with modern card design
         self.preview_frame = ctk.CTkFrame(
             self,
@@ -264,6 +310,8 @@ class MainPage(ctk.CTkFrame):
         # Active downloads
         self.active_downloads = {}
         
+        self.show_home_page()  # Show home page by default
+
     def start_download(self):
         """Start the download process"""
         url = self.url_entry.get().strip()
@@ -495,6 +543,7 @@ class MainPage(ctk.CTkFrame):
         url = self.url_entry.get().strip()
         if not url:
             self.update_preview(None)
+            self.show_home_page()
             return
             
         try:
@@ -522,16 +571,29 @@ class MainPage(ctk.CTkFrame):
                     'thumbnail_url': video_info.get('thumbnail', video_info.get('thumbnail_url'))
                 }
                 self.update_preview(preview_info)
+                self.show_converter_page()
             else:
                 self.update_preview(None)
+                self.show_home_page()
         except Exception as e:
             logging.error(f"Error updating preview: {e}")
             self.update_preview(None)
+            self.show_home_page()
             # If error is about cookies, try to refresh them
             if "Sign in to confirm you're not a bot" in str(e):
                 cookie_manager.clear_cookies()  # Clear existing cookies
                 # Trigger URL change again to get fresh cookies
                 self.after(1000, lambda: self._on_url_change(event))
+
+    def show_home_page(self):
+        self.preview_frame.pack_forget()
+        self.home_frame.pack(fill="both", expand=True)
+        self.active_page = "home"
+
+    def show_converter_page(self):
+        self.home_frame.pack_forget()
+        self.preview_frame.pack(fill="both", expand=True)
+        self.active_page = "converter"
 
     @staticmethod
     def open(parent_frame, app=None):

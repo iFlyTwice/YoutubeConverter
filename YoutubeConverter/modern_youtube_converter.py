@@ -1,25 +1,27 @@
 import customtkinter as ctk
 from PIL import Image
+import logging
+from components.main_page import MainPage
+from components.sidebar import SmoothSidebar
+from utils.settings_manager import SettingsManager
 import os
 import time
 import threading
-from components.sidebar import SmoothSidebar
 from components.settings_page import SettingsPage
-from components.main_page import MainPage
 from components.about_page import AboutPage
 from components.help_page import HelpPage
 from components.themes_page import ThemesPage
 from components.statistics_page import StatisticsPage
 from components.downloads_page import DownloadsPage
-from utils.settings_manager import SettingsManager
+from components.clipping_page import ClippingPage
 import json
 
 # Set the appearance mode and default color theme
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("dark-blue")
 
-# Colors
-DARKER_COLOR = "#1a1a1a"
+# Constants
+DARKER_COLOR = "#121212"
 ACCENT_COLOR = "#3d3d3d"
 HOVER_COLOR = "#4d4d4d"
 TEXT_COLOR = "#ffffff"
@@ -33,6 +35,8 @@ class YoutubeConverterApp(ctk.CTk):
         
         # Configure window
         self.title("Modern YouTube Converter")
+        self.geometry("1000x600")
+        self.minsize(800, 500)
         
         # Load window geometry from settings
         settings = self.settings_manager.load_settings()
@@ -130,12 +134,10 @@ class YoutubeConverterApp(ctk.CTk):
         self.main_frame.pack(fill="both", expand=True)
 
         # Initialize UI components
+        self.setup_theme()
         self.setup_menu()
+        self.setup_main_page()
         
-        # Initialize main page
-        self.main_page = MainPage(self.main_frame, fg_color=DARKER_COLOR)
-        self.main_page.pack(fill="both", expand=True)
-
     def _on_configure(self, event):
         """Handle window configuration changes"""
         # Save window position and size to settings
@@ -151,36 +153,40 @@ class YoutubeConverterApp(ctk.CTk):
         self.settings_manager.update_setting('window', geometry)
 
     def setup_menu(self):
-        """Set up the sidebar menu items"""
-        menu_items = [
-            ("⚙️", "Settings", self.open_settings),
-            ("📥", "Downloads", self.open_downloads),
-            ("🎨", "Themes", self.open_themes),
-            ("📊", "Statistics", self.open_statistics),
-            (" ℹ️", "About", self.open_about),
-            ("❔", "Help", self.open_help)
-        ]
-
-        for icon, text, command in menu_items:
-            self.sidebar.add_menu_item(icon, text, command)
-
+        """Setup the menu sidebar"""
+        # Create sidebar
+        self.sidebar.setup_menu_items(self)
+        
     def toggle_menu(self):
+        """Toggle the sidebar menu"""
         self.sidebar.toggle()
+        
+    def load_icon(self, name):
+        """Load an icon image"""
+        try:
+            return ctk.CTkImage(
+                light_image=Image.open(f"assets/icons/{name}.png"),
+                dark_image=Image.open(f"assets/icons/{name}.png"),
+                size=(20, 20)
+            )
+        except Exception as e:
+            print(f"Error loading icon {name}: {e}")
+            return None
 
-    def toggle_always_on_top(self, event=None):
-        """Toggle the always-on-top state of the window"""
-        current_state = self.settings_manager.get_setting('always_on_top', False)
-        new_state = not current_state
+    def setup_theme(self):
+        """Set up the theme"""
+        # Set theme
+        self.theme = self.settings_manager.get_setting('theme', 'Dark')
         
-        # Update window state immediately
-        self.attributes('-topmost', new_state)
-        if new_state:
-            # Force window to stay on top by lifting it
-            self.lift()
-            self.focus_force()
-        
-        # Save to settings
-        self.settings_manager.update_setting('always_on_top', new_state)
+        # Set window color
+        self._set_appearance_mode("dark")
+        self.configure(fg_color=DARKER_COLOR)
+
+    def setup_main_page(self):
+        """Set up the main page"""
+        # Initialize main page
+        self.main_page = MainPage(self.main_frame, fg_color=DARKER_COLOR)
+        self.main_page.pack(fill="both", expand=True)
 
     def switch_page(self, page_class):
         """Switch to a new page"""
@@ -240,6 +246,14 @@ class YoutubeConverterApp(ctk.CTk):
         
         self.transition_to_page(HelpPage)
 
+    def open_clipping(self):
+        """Open the clipping page"""
+        # Hide the sidebar first
+        if self.sidebar.visible:
+            self.sidebar.toggle()
+        
+        self.transition_to_page(ClippingPage)
+
     def transition_to_page(self, page_class, **kwargs):
         """Handle clean transition between pages"""
         # Clear main frame
@@ -249,12 +263,11 @@ class YoutubeConverterApp(ctk.CTk):
         # Prepare common kwargs
         page_kwargs = {
             "master": self.main_frame,
-            "fg_color": DARKER_COLOR,
             "app": self
         }
         
         # Add back button callback for pages that need it
-        if page_class in [DownloadsPage, AboutPage, HelpPage, StatisticsPage, ThemesPage, SettingsPage]:
+        if page_class in [DownloadsPage, AboutPage, HelpPage, StatisticsPage, ThemesPage, SettingsPage, ClippingPage]:
             page_kwargs["on_back_click"] = self.show_main_page
             
         # Create and pack new page
