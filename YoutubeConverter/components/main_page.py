@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from components.buttons import AnimatedButton
 from components.download_card import DownloadCard
-from PIL import Image, ImageTk
+from PIL import Image
 import urllib.request
 from io import BytesIO
 import threading
@@ -110,13 +110,11 @@ class MainPage(ctk.CTkFrame):
         self.preview_frame = ctk.CTkFrame(
             self,
             fg_color="#1e1e1e",
-            height=300,  # Increased height for better preview
             corner_radius=15
         )
         self.preview_frame.pack(fill="x", padx=40, pady=30)
-        self.preview_frame.pack_propagate(False)
         
-        # Create inner preview card
+        # Create inner preview card with dynamic sizing
         self.preview_card = ctk.CTkFrame(
             self.preview_frame,
             fg_color="#252525",
@@ -124,14 +122,12 @@ class MainPage(ctk.CTkFrame):
         )
         self.preview_card.pack(fill="both", expand=True, padx=15, pady=15)
         
-        # Thumbnail frame
+        # Thumbnail frame with dynamic sizing
         self.thumbnail_frame = ctk.CTkFrame(
             self.preview_card,
-            fg_color="transparent",
-            height=180
+            fg_color="transparent"
         )
         self.thumbnail_frame.pack(fill="x", padx=10, pady=(10, 5))
-        self.thumbnail_frame.pack_propagate(False)
         
         # Thumbnail label (will hold the image)
         self.thumbnail_label = ctk.CTkLabel(
@@ -348,42 +344,87 @@ class MainPage(ctk.CTkFrame):
     def update_preview(self, video_info):
         """Update the preview card with video information"""
         if not video_info:
+            self.thumbnail_label.configure(image=None)
             self.title_label.configure(text="Enter a YouTube URL to see preview")
             self.channel_label.configure(text="")
             self.duration_label.configure(text="")
-            self.thumbnail_label.configure(image=None)
             return
             
-        # Update title
-        self.title_label.configure(text=video_info.get('title', 'No title available'))
-        
-        # Update channel name
-        channel = video_info.get('channel', 'Unknown channel')
-        self.channel_label.configure(text=channel)
-        
-        # Update duration
-        duration = video_info.get('duration', 0)
-        duration_str = str(timedelta(seconds=duration)) if duration else "Unknown duration"
-        self.duration_label.configure(text=duration_str)
-        
-        # Update thumbnail
         try:
-            thumbnail_url = video_info.get('thumbnail')
-            if thumbnail_url:
-                response = requests.get(thumbnail_url)
-                img_data = Image.open(BytesIO(response.content))
-                # Resize image to fit the frame while maintaining aspect ratio
-                target_height = 180
-                aspect_ratio = img_data.width / img_data.height
-                target_width = int(target_height * aspect_ratio)
-                img_data = img_data.resize((target_width, target_height), Image.Resampling.LANCZOS)
-                photo = ImageTk.PhotoImage(img_data)
-                self.thumbnail_label.configure(image=photo)
-                self.thumbnail_label.image = photo  # Keep a reference
+            # Get thumbnail
+            if 'thumbnail_url' in video_info:
+                response = requests.get(video_info['thumbnail_url'])
+                if response.status_code == 200:
+                    img = Image.open(BytesIO(response.content))
+                    
+                    # Calculate the aspect ratio of the original image
+                    aspect_ratio = img.width / img.height
+                    
+                    # Get window dimensions
+                    window_width = self.winfo_width()
+                    window_height = self.winfo_height()
+                    
+                    # Set minimum and maximum dimensions
+                    min_width = 400
+                    max_width = 1200
+                    min_height = 225  # 16:9 aspect ratio minimum
+                    max_height = 675  # 16:9 aspect ratio maximum
+                    
+                    # Calculate target width (70% of window width, within bounds)
+                    target_width = min(max_width, max(min_width, int(window_width * 0.7)))
+                    
+                    # Calculate target height based on aspect ratio
+                    target_height = int(target_width / aspect_ratio)
+                    
+                    # Ensure height is within bounds
+                    if target_height > max_height:
+                        target_height = max_height
+                        target_width = int(target_height * aspect_ratio)
+                    elif target_height < min_height:
+                        target_height = min_height
+                        target_width = int(target_height * aspect_ratio)
+                    
+                    # Add padding to prevent content from being cut off
+                    padding_x = 40
+                    padding_y = 30
+                    
+                    # Resize image maintaining aspect ratio
+                    img = UIHelper.resize_image(img, (target_width, target_height))
+                    
+                    # Create CTkImage with the calculated size
+                    ctk_img = ctk.CTkImage(light_image=img, dark_image=img, 
+                                         size=(target_width, target_height))
+                    
+                    # Update thumbnail label
+                    self.thumbnail_label.configure(image=ctk_img)
+                    self.current_thumbnail = ctk_img
+                    
+                    # Update frame sizes with padding
+                    self.thumbnail_frame.configure(width=target_width + padding_x, height=target_height)
+                    self.preview_frame.configure(width=target_width + padding_x * 2, 
+                                              height=target_height + padding_y * 2 + 120)  # Add padding for text
+                    
+                    # Ensure the preview frame maintains its size
+                    self.preview_frame.pack_propagate(False)
+            
+            # Update other video information
+            title = video_info.get('title', 'Unknown Title')
+            channel = video_info.get('channel', 'Unknown Channel')
+            duration = video_info.get('duration', 0)
+            
+            # Format duration
+            duration_str = str(timedelta(seconds=int(duration))) if duration else "Unknown duration"
+            if duration_str.startswith('0:'):
+                duration_str = duration_str[2:]  # Remove leading 0: if less than an hour
+            
+            self.title_label.configure(text=title)
+            self.channel_label.configure(text=channel)
+            self.duration_label.configure(text=duration_str)
+            
         except Exception as e:
-            logging.error(f"Error loading thumbnail: {e}")
-            self.thumbnail_label.configure(image=None)
-
+            logging.error(f"Error updating preview: {str(e)}")
+            self.title_label.configure(text="Error loading video preview")
+            
     def _on_url_change(self, event=None):
         """Handle URL changes and update preview"""
         url = self.url_entry.get().strip()
@@ -411,9 +452,9 @@ class MainPage(ctk.CTkFrame):
                 # Transform video info for preview
                 preview_info = {
                     'title': video_info.get('title', 'No title available'),
-                    'channel': video_info.get('uploader', video_info.get('channel', 'Unknown channel')),
-                    'duration': video_info.get('duration', 0),
-                    'thumbnail': video_info.get('thumbnail', video_info.get('thumbnail_url'))
+                    'author': video_info.get('uploader', video_info.get('channel', 'Unknown channel')),
+                    'length': video_info.get('duration', 0),
+                    'thumbnail_url': video_info.get('thumbnail', video_info.get('thumbnail_url'))
                 }
                 self.update_preview(preview_info)
             else:

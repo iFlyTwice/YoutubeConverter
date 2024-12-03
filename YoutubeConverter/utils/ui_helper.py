@@ -1,5 +1,6 @@
 import customtkinter as ctk
 from typing import Optional, Union, Tuple, Any
+from PIL import Image
 
 
 class UIHelper:
@@ -119,3 +120,46 @@ class UIHelper:
             corner_radius=corner_radius
         )
         return entry
+
+    @staticmethod
+    def resize_image(image: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
+        """
+        Resize an image to target size while maintaining aspect ratio
+        
+        Args:
+            image: PIL Image object to resize
+            target_size: Tuple of (width, height) for target size
+            
+        Returns:
+            Resized PIL Image object
+        """
+        target_width, target_height = target_size
+        original_width, original_height = image.size
+        
+        # Calculate aspect ratios
+        target_aspect = target_width / target_height
+        original_aspect = original_width / original_height
+        
+        if original_aspect > target_aspect:
+            # Image is wider than target - scale by width
+            new_width = target_width
+            new_height = int(target_width / original_aspect)
+        else:
+            # Image is taller than target - scale by height
+            new_height = target_height
+            new_width = int(target_height * original_aspect)
+            
+        # Resize the image
+        resized_image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        
+        # Create a new blank image with the target size
+        final_image = Image.new("RGB", target_size, (0, 0, 0))
+        
+        # Calculate position to paste resized image (center it)
+        paste_x = (target_width - new_width) // 2
+        paste_y = (target_height - new_height) // 2
+        
+        # Paste the resized image onto the blank canvas
+        final_image.paste(resized_image, (paste_x, paste_y))
+        
+        return final_image
