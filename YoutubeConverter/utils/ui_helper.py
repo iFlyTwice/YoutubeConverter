@@ -32,7 +32,8 @@ class UIHelper:
         title_font: Optional[tuple] = None,
         desc_font: Optional[tuple] = None,
         title_color: str = "#ffffff",
-        desc_color: str = "#888888"
+        desc_color: str = "#888888",
+        text_align: str = "left"
     ) -> ctk.CTkFrame:
         """Create a text container with title and description"""
         if title_font is None:
@@ -41,7 +42,7 @@ class UIHelper:
             desc_font = ("Segoe UI", 11)
 
         text_frame = ctk.CTkFrame(master, fg_color="transparent")
-        text_frame.pack(side="left", fill="both", expand=True, padx=15, pady=10)
+        text_frame.pack(fill="both", expand=True)
         
         title_label = ctk.CTkLabel(
             text_frame,
@@ -49,15 +50,16 @@ class UIHelper:
             font=ctk.CTkFont(family=title_font[0], size=title_font[1]),
             text_color=title_color
         )
-        title_label.pack(anchor="w")
+        title_label.pack(anchor="center" if text_align == "center" else "w")
         
-        desc_label = ctk.CTkLabel(
-            text_frame,
-            text=description,
-            font=ctk.CTkFont(family=desc_font[0], size=desc_font[1]),
-            text_color=desc_color
-        )
-        desc_label.pack(anchor="w")
+        if description:
+            desc_label = ctk.CTkLabel(
+                text_frame,
+                text=description,
+                font=ctk.CTkFont(family=desc_font[0], size=desc_font[1]),
+                text_color=desc_color
+            )
+            desc_label.pack(anchor="center" if text_align == "center" else "w")
         
         return text_frame
 
@@ -155,6 +157,16 @@ class UIHelper:
             dropdown_hover_color="#404040",
             corner_radius=6
         )
+
+    @staticmethod
+    def ease_out_quad(t: float) -> float:
+        """Quadratic ease-out function for smooth animations
+        Args:
+            t: Progress from 0.0 to 1.0
+        Returns:
+            Eased value from 0.0 to 1.0
+        """
+        return t * (2 - t)
 
     @staticmethod
     def resize_image(image: Image.Image, target_size: Tuple[int, int]) -> Image.Image:
