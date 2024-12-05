@@ -1,20 +1,38 @@
+import os
+import json
+import threading
+import logging
 import customtkinter as ctk
 from PIL import Image
-import logging
+from ui_helper import UIHelper
 from components.main_page import MainPage
 from components.sidebar import SmoothSidebar
 from utils.settings_manager import SettingsManager
-import os
-import time
-import threading
 from components.settings_page import SettingsPage
 from components.about_page import AboutPage
 from components.help_page import HelpPage
-from components.themes_page import ThemesPage
-from components.statistics_page import StatisticsPage
 from components.downloads_page import DownloadsPage
 from components.clipping_page import ClippingPage
-import json
+from components.themes_page import ThemesPage
+from components.statistics_page import StatisticsPage
+from datetime import datetime
+
+# Set up logging
+log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs')
+os.makedirs(log_dir, exist_ok=True)
+
+log_file = os.path.join(log_dir, f'youtube_converter_{datetime.now().strftime("%Y%m%d")}.log')
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(log_file),
+        logging.StreamHandler()  # Also log to console
+    ]
+)
+
+logger = logging.getLogger(__name__)
+logger.info("Starting YouTube Converter application")
 
 # Set the appearance mode and default color theme
 ctk.set_appearance_mode("dark")
@@ -33,10 +51,60 @@ class YoutubeConverterApp(ctk.CTk):
         # Initialize settings manager
         self.settings_manager = SettingsManager()
         
+        # Initialize current_page
+        self.current_page = None
+        
         # Configure window
         self.title("Modern YouTube Converter")
         self.geometry("1000x600")
         self.minsize(800, 500)
+        self.overrideredirect(True)  # Remove title bar
+        
+        # Create title bar frame
+        self.title_bar = UIHelper.create_section_frame(
+            self,
+            height=25,
+            fg_color="#1a1a1a",
+            corner_radius=0
+        )
+        self.title_bar.pack(fill="x", side="top", pady=0, padx=0)
+        
+        # Make window draggable from title bar
+        self.title_bar.bind("<Button-1>", self.start_move)
+        self.title_bar.bind("<B1-Motion>", self.do_move)
+        
+        # Window controls frame (right-aligned)
+        self.controls_frame = ctk.CTkFrame(self.title_bar, fg_color="transparent")
+        self.controls_frame.pack(side="right", padx=0)
+        
+        # Minimize and close buttons
+        self.min_button = ctk.CTkLabel(
+            self.controls_frame, 
+            text="─",
+            width=25,
+            height=25,
+            fg_color="transparent",
+            text_color="#ffffff",
+            cursor="hand2"
+        )
+        self.min_button.pack(side="left")
+        self.min_button.bind("<Button-1>", lambda e: self.minimize_window())
+        self.min_button.bind("<Enter>", lambda e: self.min_button.configure(fg_color="#333333"))
+        self.min_button.bind("<Leave>", lambda e: self.min_button.configure(fg_color="transparent"))
+        
+        self.close_button = ctk.CTkLabel(
+            self.controls_frame, 
+            text="×",
+            width=25,
+            height=25,
+            fg_color="transparent",
+            text_color="#ffffff",
+            cursor="hand2"
+        )
+        self.close_button.pack(side="left")
+        self.close_button.bind("<Button-1>", lambda e: self.quit())
+        self.close_button.bind("<Enter>", lambda e: self.close_button.configure(fg_color="#aa0000"))
+        self.close_button.bind("<Leave>", lambda e: self.close_button.configure(fg_color="transparent"))
         
         # Load window geometry from settings
         settings = self.settings_manager.load_settings()
@@ -184,9 +252,9 @@ class YoutubeConverterApp(ctk.CTk):
 
     def setup_main_page(self):
         """Set up the main page"""
-        # Initialize main page
-        self.main_page = MainPage(self.main_frame, fg_color=DARKER_COLOR)
-        self.main_page.pack(fill="both", expand=True)
+        # Initialize main page using transition_to_page
+        self.current_page = MainPage(self.main_frame, app=self, fg_color=DARKER_COLOR)
+        self.current_page.pack(fill="both", expand=True)
 
     def switch_page(self, page_class):
         """Switch to a new page"""
@@ -200,89 +268,128 @@ class YoutubeConverterApp(ctk.CTk):
 
     def open_settings(self):
         """Open the settings page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Settings page")
         # Hide the sidebar first
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
-            
-        self.switch_page(SettingsPage)
+        
+        self.transition_to_page(SettingsPage)
 
     def open_downloads(self):
         """Open the downloads page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Downloads page")
         # Hide the sidebar first
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
         
         self.transition_to_page(DownloadsPage)
 
-    def open_themes(self):
-        """Open the themes settings"""
-        # Hide the sidebar first
-        if self.sidebar.visible:
-            self.sidebar.toggle()
-        
-        self.transition_to_page(ThemesPage)
-
     def open_statistics(self):
         """Open the statistics page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Statistics page")
         # Hide the sidebar first
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
         
         self.transition_to_page(StatisticsPage)
 
-    def open_about(self):
-        """Open the about page"""
+    def open_clipping(self):
+        """Open the clipping page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Clipping page")
         # Hide the sidebar first
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
+            self.sidebar.toggle()
+        
+        self.transition_to_page(ClippingPage)
+
+    def open_themes(self):
+        """Open the themes page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Themes page")
+        # Hide the sidebar first
+        if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
+            self.sidebar.toggle()
+        
+        self.transition_to_page(ThemesPage)
+
+    def open_about(self):
+        """Open the about page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening About page")
+        # Hide the sidebar first
+        if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
         
         self.transition_to_page(AboutPage)
 
     def open_help(self):
         """Open the help page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Opening Help page")
         # Hide the sidebar first
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
         
         self.transition_to_page(HelpPage)
 
-    def open_clipping(self):
-        """Open the clipping page"""
-        # Hide the sidebar first
-        if self.sidebar.visible:
-            self.sidebar.toggle()
-        
-        self.transition_to_page(ClippingPage)
-
-    def transition_to_page(self, page_class, **kwargs):
-        """Handle clean transition between pages"""
-        # Clear main frame
-        for widget in self.main_frame.winfo_children():
-            widget.destroy()
-            
-        # Prepare common kwargs
-        page_kwargs = {
-            "master": self.main_frame,
-            "app": self
-        }
-        
-        # Add back button callback for pages that need it
-        if page_class in [DownloadsPage, AboutPage, HelpPage, StatisticsPage, ThemesPage, SettingsPage, ClippingPage]:
-            page_kwargs["on_back_click"] = self.show_main_page
-            
-        # Create and pack new page
-        new_page = page_class(**page_kwargs)
-        new_page.pack(fill="both", expand=True)
-        
-        return new_page
-        
     def show_main_page(self):
         """Switch to main page"""
+        logger = logging.getLogger(__name__)
+        logger.info("Switching to Main page")
         # Hide the sidebar first if visible
         if self.sidebar.visible:
+            logger.debug("Hiding sidebar before transition")
             self.sidebar.toggle()
         return self.transition_to_page(MainPage)
 
+    def transition_to_page(self, page_class, **kwargs):
+        """Handle clean transition between pages"""
+        logger = logging.getLogger(__name__)
+        logger.info(f"Transitioning from {self.current_page.__class__.__name__ if hasattr(self, 'current_page') else 'None'} to {page_class.__name__}")
+        
+        # Remove current page if it exists
+        if hasattr(self, 'current_page'):
+            logger.debug(f"Destroying current page: {self.current_page.__class__.__name__}")
+            self.current_page.destroy()
+        
+        # Prepare kwargs for the new page
+        page_kwargs = {
+            "master": self.main_frame,
+            "app": self,  # Pass app reference to all pages
+            **kwargs
+        }
+        
+        # Add back button callback for pages that need it
+        if page_class in [DownloadsPage, AboutPage, HelpPage, SettingsPage]:
+            logger.debug(f"Added back button callback for {page_class.__name__}")
+            page_kwargs["on_back_click"] = self.show_main_page
+        
+        # Create and pack new page
+        logger.debug(f"Creating new {page_class.__name__} instance")
+        try:
+            new_page = page_class(**page_kwargs)
+            new_page.pack(fill="both", expand=True)
+            
+            # Store reference to current page
+            self.current_page = new_page
+            logger.info(f"Successfully transitioned to {page_class.__name__}")
+            
+            return new_page
+        except Exception as e:
+            logger.error(f"Failed to create {page_class.__name__}: {str(e)}")
+            raise
+        
     def on_closing(self):
         """Handle window closing event"""
         # Save window geometry
@@ -299,6 +406,26 @@ class YoutubeConverterApp(ctk.CTk):
         
         self.settings_manager.save_settings(settings)
         self.quit()
+
+    def start_move(self, event):
+        self.x = event.x
+        self.y = event.y
+
+    def do_move(self, event):
+        deltax = event.x - self.x
+        deltay = event.y - self.y
+        x = self.winfo_x() + deltax
+        y = self.winfo_y() + deltay
+        self.geometry(f"+{x}+{y}")
+
+    def minimize_window(self):
+        self.iconify()
+
+    def toggle_maximize(self):
+        if self.attributes('-zoomed'):
+            self.attributes('-zoomed', False)
+        else:
+            self.attributes('-zoomed', True)
 
 if __name__ == "__main__":
     app = YoutubeConverterApp()

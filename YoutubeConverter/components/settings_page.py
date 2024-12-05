@@ -20,10 +20,14 @@ TEXT_COLOR = "#ffffff"
 CORNER_RADIUS = 8
 
 class SettingsPage(ctk.CTkFrame):
-    def __init__(self, master, **kwargs):
+    def __init__(self, master, app=None, on_back_click=None, **kwargs):
+        # Store parameters before super().__init__
+        self.app = app
+        self.on_back_click = on_back_click
+        # Remove app and on_back_click from kwargs
+        kwargs.pop('app', None)
+        kwargs.pop('on_back_click', None)
         super().__init__(master, **kwargs)
-        self.app = None  # Will be set by transition_to_page
-        
         # Initialize managers
         self.settings_manager = SettingsManager()
         self.event_manager = EventManager()

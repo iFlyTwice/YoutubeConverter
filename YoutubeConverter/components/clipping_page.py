@@ -1,5 +1,5 @@
 import customtkinter as ctk
-from utils.ui_helper import UIHelper
+from ui_helper import UIHelper
 from PIL import Image
 import urllib.request
 from io import BytesIO
@@ -19,33 +19,34 @@ BG_COLOR = "#2d2d2d"
 
 class ClippingPage(ctk.CTkFrame):
     def __init__(self, master, app=None, on_back_click=None, **kwargs):
-        # Remove fg_color from kwargs if it exists
-        if 'fg_color' in kwargs:
-            del kwargs['fg_color']
-            
-        # Extract on_back_click before passing kwargs to super()
-        self.on_back_click = on_back_click
+        # Store parameters before super().__init__
         self.app = app
-        super().__init__(master, fg_color=DARKER_COLOR, **kwargs)
-
+        self.on_back_click = on_back_click
+        # Remove app and on_back_click from kwargs
+        kwargs.pop('app', None)
+        kwargs.pop('on_back_click', None)
+        super().__init__(master, **kwargs)
+        
+        # Configure the frame
+        self.configure(fg_color=DARKER_COLOR)
+        
+        # Create header with back button if needed
+        self.header = ctk.CTkFrame(self, fg_color="#232323", height=50)
+        self.header.pack(fill="x", padx=10, pady=10)
+        
         # Main container
-        self.main_container = UIHelper.create_section_frame(
-            self,
-            fg_color=DARKER_COLOR,
-            corner_radius=0
-        )
+        self.main_container = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
         self.main_container.pack(fill="both", expand=True, padx=15, pady=15)
 
         # URL Entry frame with centered content
-        self.url_frame = UIHelper.create_section_frame(
+        self.url_frame = ctk.CTkFrame(
             self.main_container,
             fg_color=DARKER_COLOR,
-            corner_radius=0
         )
         self.url_frame.pack(fill="x", pady=(10, 20))
         
         # URL Entry with validation
-        self.url_entry = UIHelper.create_entry(
+        self.url_entry = ctk.CTkEntry(
             self.url_frame,
             placeholder_text="Enter YouTube URL to clip",
             height=45,
@@ -55,7 +56,7 @@ class ClippingPage(ctk.CTkFrame):
         self.url_entry.bind('<KeyRelease>', self._on_url_change)
         
         # Paste button
-        self.paste_btn = UIHelper.create_button(
+        self.paste_btn = ctk.CTkButton(
             self.url_frame,
             text="📋",
             width=45,
@@ -66,35 +67,43 @@ class ClippingPage(ctk.CTkFrame):
         self.paste_btn.pack(side="left", padx=5)
 
         # Home page container
-        self.home_frame = UIHelper.create_section_frame(
+        self.home_frame = ctk.CTkFrame(
             self.main_container,
             fg_color="transparent",
-            corner_radius=0
         )
         self.home_frame.pack(fill="both", expand=True)
 
         # Welcome header
-        UIHelper.create_text_container(
-            self.home_frame,
-            title="Video Clipping",
-            description="Clip and customize your favorite moments from YouTube videos!",
-            title_font=("Segoe UI", 24, "bold"),
-            desc_font=("Segoe UI", 14)
-        ).pack(pady=(30, 30))
+        title_frame = ctk.CTkFrame(self.home_frame, fg_color="transparent")
+        title_frame.pack(pady=(30, 30))
+        
+        title_label = ctk.CTkLabel(
+            title_frame,
+            text="Video Clipping",
+            font=("Segoe UI", 24, "bold"),
+            text_color=TEXT_COLOR
+        )
+        title_label.pack()
+        
+        desc_label = ctk.CTkLabel(
+            title_frame,
+            text="Clip and customize your favorite moments from YouTube videos!",
+            font=("Segoe UI", 14),
+            text_color="#888888"
+        )
+        desc_label.pack()
 
         # Preview Frame
-        self.preview_frame = UIHelper.create_section_frame(
+        self.preview_frame = ctk.CTkFrame(
             self.main_container,
             fg_color="#1e1e1e",
-            corner_radius=15
         )
         self.preview_frame.pack_forget()  # Hide by default
 
         # Video preview section
-        self.video_frame = UIHelper.create_section_frame(
+        self.video_frame = ctk.CTkFrame(
             self.preview_frame,
             fg_color="transparent",
-            corner_radius=0
         )
         self.video_frame.pack(fill="x", padx=20, pady=15)
 
@@ -116,7 +125,7 @@ class ClippingPage(ctk.CTkFrame):
         self.thumbnail_label.pack(expand=True, fill="both")
 
         # Video title
-        self.title_label = UIHelper.create_label(
+        self.title_label = ctk.CTkLabel(
             self.video_frame,
             text="Enter a YouTube URL to start clipping",
             font=("Segoe UI", 14, "bold"),
@@ -125,28 +134,26 @@ class ClippingPage(ctk.CTkFrame):
         self.title_label.pack(pady=5)
 
         # Time selection frame
-        self.time_frame = UIHelper.create_section_frame(
+        self.time_frame = ctk.CTkFrame(
             self.preview_frame,
             fg_color="transparent",
-            corner_radius=0
         )
         self.time_frame.pack(fill="x", padx=20, pady=10)
 
         # Start time
-        self.start_frame = UIHelper.create_section_frame(
+        self.start_frame = ctk.CTkFrame(
             self.time_frame,
             fg_color="transparent",
-            corner_radius=0
         )
         self.start_frame.pack(side="left", padx=10)
 
-        UIHelper.create_label(
+        ctk.CTkLabel(
             self.start_frame,
             text="Start Time",
             font=("Segoe UI", 12)
         ).pack()
 
-        self.start_time = UIHelper.create_entry(
+        self.start_time = ctk.CTkEntry(
             self.start_frame,
             placeholder_text="00:00",
             width=80,
@@ -155,20 +162,19 @@ class ClippingPage(ctk.CTkFrame):
         self.start_time.pack(pady=5)
 
         # End time
-        self.end_frame = UIHelper.create_section_frame(
+        self.end_frame = ctk.CTkFrame(
             self.time_frame,
             fg_color="transparent",
-            corner_radius=0
         )
         self.end_frame.pack(side="left", padx=10)
 
-        UIHelper.create_label(
+        ctk.CTkLabel(
             self.end_frame,
             text="End Time",
             font=("Segoe UI", 12)
         ).pack()
 
-        self.end_time = UIHelper.create_entry(
+        self.end_time = ctk.CTkEntry(
             self.end_frame,
             placeholder_text="00:00",
             width=80,
@@ -177,7 +183,7 @@ class ClippingPage(ctk.CTkFrame):
         self.end_time.pack(pady=5)
 
         # Clip button
-        self.clip_button = UIHelper.create_button(
+        self.clip_button = ctk.CTkButton(
             self.preview_frame,
             text="Create Clip",
             font=("Segoe UI", 14),
