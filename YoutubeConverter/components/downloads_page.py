@@ -2,7 +2,7 @@ import customtkinter as ctk
 import os
 import json
 from datetime import datetime
-from YoutubeConverter.utils.ui_helper import UIHelper
+from utils.ui_helper import UIHelper
 
 DARKER_COLOR = "#1a1a1a"
 ACCENT_COLOR = "#333333"

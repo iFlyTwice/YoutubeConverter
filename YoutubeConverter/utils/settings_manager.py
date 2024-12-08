@@ -3,7 +3,7 @@ import os
 
 class SettingsManager:
     def __init__(self):
-        self.settings_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'settings.json')
+        self.settings_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'settings.json')
         self.default_settings = {
             'output_directory': os.path.join(os.path.expanduser('~'), 'Downloads'),
             'video_quality': 'Highest',

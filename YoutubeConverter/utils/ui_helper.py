@@ -6,6 +6,15 @@ from PIL import Image
 class UIHelper:
     """Helper class for common UI operations and styling"""
     
+    # Constants
+    MENU_WIDTH = 300  # Width of the sidebar menu in pixels
+    
+    # Colors
+    ACCENT_COLOR = "#3d3d3d"
+    HOVER_COLOR = "#4d4d4d"
+    TEXT_COLOR = "#ffffff"
+    BG_COLOR = "#2d2d2d"
+
     @staticmethod
     def create_section_frame(
         master: Any,
