@@ -1,0 +1,8 @@
+customtkinter
+darkdetect
+Pillow
+yt-dlp
+requests
+humanize
+selenium
+webdriver-manager
