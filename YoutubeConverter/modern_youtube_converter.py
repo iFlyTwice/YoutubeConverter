@@ -55,10 +55,18 @@ class YoutubeConverterApp(ctk.CTk):
         """Initialize the YouTube Converter application."""
         super().__init__()
         
+        # Initialize settings manager first
+        self.settings_manager = SettingsManager()
+        
         # Initialize theme manager and load theme
         self.theme_manager = ThemeManager()
-        loaded_theme = self.theme_manager.load_theme()
-        self.theme = loaded_theme if isinstance(loaded_theme, ThemeColors) else THEMES["Dark Mode"]
+        
+        # Load theme from settings
+        theme_data = self.settings_manager.get_setting('theme')
+        if isinstance(theme_data, dict):
+            self.theme = ThemeColors.from_dict(theme_data)
+        else:
+            self.theme = THEMES.get(theme_data, THEMES["Dark Mode"]) if isinstance(theme_data, str) else THEMES["Dark Mode"]
         
         # Initialize variables for sidebar animation
         self.sidebar_visible = False
@@ -69,33 +77,80 @@ class YoutubeConverterApp(ctk.CTk):
         self.tk.call('lappend', 'auto_path', fonts_dir)
         self.tk.call('source', os.path.join(fonts_dir, 'material-icons.tcl'))
         
-        # Initialize settings manager
-        self.settings_manager = SettingsManager()
-        
-        # Initialize current_page
-        self.current_page = None
-        
         # Configure window
-        self.title("YouPro - v1.0.2")  # Update window title
+        self.title("")  # Empty title
         self.geometry("800x600")
         self.corner_radius = 15  # Add rounded corners to the main window
         self.minsize(800, 600)
         self.configure(fg_color=self.theme.bg)
         self.overrideredirect(True)  # Remove title bar
         
-        # Set window attributes to show in taskbar and enable minimize/restore
-        self.after(10, lambda: self.wm_attributes("-toolwindow", 0))
-        self.after(10, lambda: self.wm_attributes("-topmost", 0))
+        # Create title bar frame with border
+        self.title_bar = ctk.CTkFrame(
+            self, 
+            height=35, 
+            fg_color=self.theme.bg,
+            border_width=2,
+            border_color="#3f3f3f"
+        )
+        self.title_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
+        self.title_bar.grid_propagate(False)
         
-        # Set window title
-        self.title("YouPro - v1.0.2")
+        # Configure title bar grid
+        self.title_bar.grid_columnconfigure(1, weight=1)  # Middle space takes up most room
         
-        # Register this as a normal window with the system
-        self.wm_attributes("-alpha", 1.0)
-        self.wm_attributes("-transparentcolor", "")
-        
-        # Make window draggable
-        self.bind("<Map>", self._on_map)
+        # Menu button (left side)
+        self.menu_button = ctk.CTkButton(
+            self.title_bar,
+            text="☰",
+            width=35,
+            height=35,
+            corner_radius=0,
+            fg_color="transparent",
+            text_color="#ffffff",
+            hover_color="#404040",
+            font=ctk.CTkFont(size=15),
+            command=self.toggle_sidebar
+        )
+        self.menu_button.grid(row=0, column=0, sticky="w")
+
+        # Control buttons frame (right side)
+        self.control_buttons_frame = ctk.CTkFrame(self.title_bar, fg_color="transparent")
+        self.control_buttons_frame.grid(row=0, column=2, sticky="e")
+
+        # Minimize button
+        self.minimize_button = ctk.CTkButton(
+            self.control_buttons_frame,
+            text="─",
+            width=35,
+            height=35,
+            corner_radius=0,
+            fg_color="transparent",
+            text_color="#ffffff",
+            hover_color="#404040",
+            font=ctk.CTkFont(size=15),
+            command=self.minimize_window
+        )
+        self.minimize_button.grid(row=0, column=0, sticky="e")
+
+        # Close button
+        self.close_button = ctk.CTkButton(
+            self.control_buttons_frame,
+            text="✕",
+            width=35,
+            height=35,
+            corner_radius=0,
+            fg_color="transparent",
+            text_color="#ffffff",
+            hover_color="#FF0000",
+            font=ctk.CTkFont(size=15),
+            command=self.destroy
+        )
+        self.close_button.grid(row=0, column=1, sticky="e")
+
+        # Bind dragging events to title bar
+        self.title_bar.bind("<Button-1>", self.start_move)
+        self.title_bar.bind("<B1-Motion>", self.on_move)
         
         # Configure grid weights for better resizing
         self.grid_rowconfigure(0, weight=0)  # Title bar row
@@ -103,7 +158,6 @@ class YoutubeConverterApp(ctk.CTk):
         self.grid_rowconfigure(2, weight=1)  # Main content row
         self.grid_columnconfigure(0, weight=1)  # Single column for main content
 
-        self._create_title_bar()
         self._create_header()
 
         # Main container
@@ -131,7 +185,7 @@ class YoutubeConverterApp(ctk.CTk):
         self.main_frame.grid_columnconfigure(0, weight=1)
         
         # Initialize UI components
-        self.setup_theme()
+        self.apply_theme(self.theme)
         self.setup_main_page()
         
         # Create sidebar menu (initially hidden)
@@ -144,87 +198,10 @@ class YoutubeConverterApp(ctk.CTk):
         self.sidebar.add_menu_item("Settings", "⚙️", self.open_settings)
         self.sidebar.add_menu_item("Downloads", "📥", self.open_downloads)
         self.sidebar.add_menu_item("Themes", "🎨", self.open_themes)
-        self.sidebar.add_menu_item("Clipping", "✂️", self.open_clipping)
+        self.sidebar.add_menu_item("Clipping", "🎬", self.open_clipping)
         self.sidebar.add_menu_item("Statistics", "📊", self.open_statistics)
         self.sidebar.add_menu_item("About", "ℹ️", self.open_about)
         self.sidebar.add_menu_item("Help", "❓", self.open_help)
-        
-    def _create_title_bar(self) -> None:
-        """Create custom title bar"""
-        # Create title bar frame with modern styling
-        self.title_bar = UIHelper.create_section_frame(
-            self,
-            height=32,  # Standard Windows title bar height
-            fg_color="#2d2d2d",  # Darker background
-            corner_radius=8
-        )
-        self.title_bar.grid(row=0, column=0, sticky="new", padx=5, pady=5)
-        self.title_bar.grid_propagate(False)
-        self.title_bar.grid_columnconfigure(1, weight=1)
-
-        # Title text
-        self.title_text = ctk.CTkLabel(
-            self.title_bar,
-            text="YouPro - v1.0.1",
-            font=ctk.CTkFont(size=12),
-            text_color="#808080"
-        )
-        self.title_text.grid(row=0, column=0, padx=10, sticky="w")
-
-        # Window controls frame
-        self.controls_frame = ctk.CTkFrame(
-            self.title_bar,
-            fg_color="transparent",
-            height=32,
-            corner_radius=8
-        )
-        self.controls_frame.grid(row=0, column=2, sticky="e")
-
-        # Create draggable area
-        self.drag_area = ctk.CTkFrame(
-            self.title_bar,
-            fg_color="transparent",
-            height=32,
-            corner_radius=8
-        )
-        self.drag_area.grid(row=0, column=1, sticky="ew")
-
-        # Make title bar draggable
-        self._drag_start_x = 0
-        self._drag_start_y = 0
-        
-        # Bind drag events
-        for widget in [self.title_bar, self.drag_area, self.title_text]:
-            widget.bind("<Button-1>", self.start_drag)
-            widget.bind("<B1-Motion>", self.on_drag)
-
-        # Window control buttons
-        button_color = "#2d2d2d"
-        hover_color = "#3d3d3d"
-        
-        self.min_button = ctk.CTkButton(
-            self.controls_frame,
-            text="—",
-            width=45,
-            height=32,
-            command=self.minimize_window,
-            fg_color=button_color,
-            hover_color=hover_color,
-            corner_radius=0
-        )
-        self.min_button.pack(side="left")
-
-        self.close_button = ctk.CTkButton(
-            self.controls_frame,
-            text="✕",
-            width=45,
-            height=32,
-            command=self.close_window,
-            fg_color=button_color,
-            hover_color="#c42b1c",
-            corner_radius=0
-        )
-        self.close_button.pack(side="left")
     
     def _create_header(self) -> None:
         """Create the header with menu button and title"""
@@ -237,7 +214,7 @@ class YoutubeConverterApp(ctk.CTk):
         # Menu button
         self.menu_button = ctk.CTkButton(
             self.header_frame,
-            text="☰",
+            text="",
             width=40,
             height=40,
             command=self.toggle_sidebar,
@@ -247,28 +224,28 @@ class YoutubeConverterApp(ctk.CTk):
         )
         self.menu_button.grid(row=0, column=0, padx=(10, 0), pady=10)
         
-        # Title with yellow text and underline
-        title_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        title_frame.grid(row=0, column=1, sticky="w", padx=(10, 0), pady=10)
+        # Create title frame
+        self.title_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
+        self.title_frame.grid(row=0, column=1, sticky="w", padx=(10, 0), pady=10)
         
         # Title label
-        title_label = ctk.CTkLabel(
-            title_frame,
-            text="YouPro",
-            font=ctk.CTkFont(size=20, weight="bold"),
-            text_color="#f0b500"  # Yellow color
+        self.title_label = ctk.CTkLabel(
+            self.title_frame,
+            text="",
+            font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
+            text_color="#ffffff"
         )
-        title_label.pack(anchor="w", pady=(0, 2))
+        self.title_label.pack(side="left", anchor="w")
         
-        # Underline
-        underline = ctk.CTkFrame(
-            title_frame,
-            height=2,
-            fg_color="#f0b500",  # Same yellow color
-            corner_radius=0
+        # Create yellow underline
+        self.title_underline = ctk.CTkFrame(
+            self.title_frame,
+            height=3,
+            fg_color="#FFB74D",
+            corner_radius=2
         )
-        underline.pack(fill="x")
-
+        self.title_underline.place(relx=0, rely=0.85, relwidth=0.3)
+    
     def animate_sidebar(self, show: bool):
         """Animate the sidebar in or out"""
         if self.animating:
@@ -295,22 +272,22 @@ class YoutubeConverterApp(ctk.CTk):
         animate_step(0)
     
     def toggle_sidebar(self):
-        """Toggle the sidebar with animation"""
-        if not hasattr(self, 'sidebar_visible'):
-            self.sidebar_visible = False
-            
-        if not self.sidebar_visible:
-            # Show sidebar before animation
-            self.sidebar.place(relx=1.0, rely=0, relheight=1, anchor="ne")
-            self.animate_sidebar(True)
+        """Toggle the sidebar visibility"""
+        if self.sidebar_visible:
+            self.hide_sidebar()
         else:
-            self.animate_sidebar(False)
-    
+            self.show_sidebar()
+            
     def hide_sidebar(self):
         """Hide the sidebar with animation"""
         if self.sidebar_visible and not self.animating:
             self.animate_sidebar(False)
-
+            
+    def show_sidebar(self):
+        """Show the sidebar with animation"""
+        if not self.sidebar_visible and not self.animating:
+            self.animate_sidebar(True)
+            
     def _on_configure(self, event):
         """Handle window configuration changes"""
         # Save window position and size to settings
@@ -350,14 +327,37 @@ class YoutubeConverterApp(ctk.CTk):
             print(f"Error loading icon {name}: {e}")
             return None
 
-    def setup_theme(self):
-        """Set up the theme"""
-        # Set theme
-        self.theme = self.settings_manager.get_setting('theme', 'Dark')
+    def apply_theme(self, theme: ThemeColors) -> None:
+        """
+        Apply a theme to the application and save it
         
-        # Set window color
-        self._set_appearance_mode("dark")
-        self.configure(fg_color=DARKER_COLOR)
+        Args:
+            theme: Theme to apply
+        """
+        try:
+            # Update window colors
+            self.configure(fg_color=theme.bg)
+            
+            # Store theme
+            self.theme = theme
+            
+            # Update header styling
+            if hasattr(self, 'title_label'):
+                self.title_label.configure(text_color="#ffffff")  # Keep title white for visibility
+            if hasattr(self, 'title_underline'):
+                self.title_underline.configure(fg_color="#FFB74D")  # Keep accent color consistent
+            
+            # Update all widgets
+            update_widget_tree(self, theme)
+            
+            # Save theme to settings
+            self.settings_manager.update_setting('theme', theme.to_dict())
+            
+            # Force a redraw
+            self.update_idletasks()
+            
+        except Exception as e:
+            logger.error(f"Error applying theme: {e}")
 
     def setup_main_page(self):
         """Set up the main page"""
@@ -483,36 +483,20 @@ class YoutubeConverterApp(ctk.CTk):
             logger.error(f"Error during app closing: {e}")
             self.destroy()
 
-    def start_drag(self, event):
-        """Start window drag operation"""
-        self._drag_start_x = event.x_root
-        self._drag_start_y = event.y_root
-        
-    def on_drag(self, event):
-        """Handle window drag operation"""
-        # Calculate the distance moved
-        delta_x = event.x_root - self._drag_start_x
-        delta_y = event.y_root - self._drag_start_y
-        
-        # Get the current window position
-        x = self.winfo_x() + delta_x
-        y = self.winfo_y() + delta_y
-        
-        # Move the window
+    def start_move(self, event):
+        self.x = event.x
+        self.y = event.y
+
+    def on_move(self, event):
+        deltax = event.x - self.x
+        deltay = event.y - self.y
+        x = self.winfo_x() + deltax
+        y = self.winfo_y() + deltay
         self.geometry(f"+{x}+{y}")
-        
-        # Update the start position
-        self._drag_start_x = event.x_root
-        self._drag_start_y = event.y_root
 
     def minimize_window(self):
-        """Minimize the window"""
-        try:
-            self.update_idletasks()
-            self.state('iconic')
-        except Exception as e:
-            logger.error(f"Error minimizing window: {e}")
-
+        self.wm_state('iconic')
+    
     def toggle_maximize(self):
         """Toggle between maximized and normal window state"""
         if self.attributes('-zoomed'):
@@ -538,14 +522,19 @@ class YoutubeConverterApp(ctk.CTk):
         """Close the window"""
         self.quit()
 
-    def start_move(self, event):
-        self.x = event.x
-        self.y = event.y
-
-    def stop_move(self, event):
-        self.x = None
-        self.y = None
-
+    def _check_sidebar_click(self, event):
+        """Check if click is outside sidebar and close it if necessary."""
+        if not self.sidebar_visible:
+            return
+            
+        # Get sidebar widget coordinates
+        sidebar_x = self.sidebar.winfo_rootx()
+        sidebar_width = self.sidebar.winfo_width()
+        
+        # If click is outside sidebar area, close it
+        if event.x_root < sidebar_x or event.x_root > (sidebar_x + sidebar_width):
+            self.hide_sidebar()
+            
 if __name__ == "__main__":
     app = YoutubeConverterApp()
     app.mainloop()

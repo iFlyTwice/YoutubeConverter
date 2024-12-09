@@ -53,9 +53,39 @@ class MainPage(ctk.CTkFrame):
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
 
+        # Create main content frame
+        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.content_frame.pack(fill="both", expand=True)
+        
+        # Configure content frame grid
+        self.content_frame.grid_rowconfigure(4, weight=1)  # Give weight to the last row
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        
+        # Create YouPro label frame
+        self.youpro_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
+        self.youpro_frame.pack(fill="x", padx=20, pady=(20, 10))
+        
+        # Add YouPro text
+        self.youpro_label = ctk.CTkLabel(
+            self.youpro_frame,
+            text="YouPro",
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+            text_color="#ffffff"
+        )
+        self.youpro_label.pack(anchor="w")
+        
+        # Add yellow underline (only under the text)
+        self.youpro_underline = ctk.CTkFrame(
+            self.youpro_frame,
+            height=3,
+            width=80,  # Width to match "YouPro" text
+            fg_color="#FFB74D"  # Yellow color
+        )
+        self.youpro_underline.pack(anchor="w", pady=(2, 0))
+        
         # URL Entry frame with centered content
-        self.url_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
-        self.url_frame.pack(fill="x", padx=10, pady=(20, 10))
+        self.url_frame = ctk.CTkFrame(self.content_frame, fg_color=DARKER_COLOR)
+        self.url_frame.pack(fill="x", padx=20, pady=(10, 10))
         
         # Create a sub-frame for all controls to keep them together
         self.controls_frame = ctk.CTkFrame(self.url_frame, fg_color=DARKER_COLOR)
@@ -109,17 +139,33 @@ class MainPage(ctk.CTkFrame):
         
         # Home page container
         self.home_frame = ctk.CTkFrame(
-            master=self,
+            master=self.content_frame,
             fg_color="transparent"
         )
 
         # Welcome header
+        self.header_frame = ctk.CTkFrame(self.home_frame, fg_color="transparent")
+        self.header_frame.pack(pady=(30, 20))
+        
         self.header_label = UIHelper.create_label(
-            self.home_frame,
+            self.header_frame,
             text="Welcome to YouTube Clipping",
             font=("Segoe UI", 24, "bold")
         )
-        self.header_label.pack(pady=(30, 20))
+        self.header_label.pack()
+
+        # Yellow underline (starts with 0 width)
+        self.header_underline = ctk.CTkFrame(
+            self.header_frame,
+            height=3,
+            width=0,
+            fg_color="#FFB74D",
+            corner_radius=2
+        )
+        self.header_underline.place(relx=0.5, rely=1, anchor="s")
+        
+        # Start animation after window is fully rendered
+        self.after(100, self.animate_underline)
 
         # Description
         self.description_label = UIHelper.create_label(
@@ -134,6 +180,8 @@ class MainPage(ctk.CTkFrame):
         self.recent_frame = ctk.CTkFrame(
             master=self.home_frame,
             fg_color="#1e1e1e",
+            border_width=1,
+            border_color="#2d2d2d",
             corner_radius=15
         )
         self.recent_frame.pack(fill="x", padx=20, pady=10)
@@ -154,7 +202,7 @@ class MainPage(ctk.CTkFrame):
 
         # Preview Frame with modern card design
         self.preview_frame = ctk.CTkFrame(
-            self,
+            self.content_frame,
             fg_color="#1e1e1e",
             corner_radius=15
         )
@@ -594,6 +642,28 @@ class MainPage(ctk.CTkFrame):
         self.home_frame.pack_forget()
         self.preview_frame.pack(fill="both", expand=True)
         self.active_page = "converter"
+
+    def animate_underline(self, current_width=0):
+        """Animate the underline expanding from center"""
+        if current_width == 0:
+            # Initialize width on first run
+            self.target_width = int(self.header_label.winfo_width() * 0.8)
+            
+        if current_width < self.target_width:
+            # Smoother animation with smaller increments
+            new_width = min(current_width + 4, self.target_width)
+            
+            # Update underline width and position
+            self.header_underline.configure(width=new_width)
+            self.header_underline.place(
+                relx=0.5,
+                rely=1,
+                anchor="s",
+                width=new_width
+            )
+            
+            # Continue animation (smoother with 10ms)
+            self.after(10, lambda: self.animate_underline(new_width))
 
     @staticmethod
     def open(parent_frame, app=None):
