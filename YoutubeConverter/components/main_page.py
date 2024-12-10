@@ -53,17 +53,9 @@ class MainPage(ctk.CTkFrame):
         # Configure the frame
         self.configure(fg_color=DARKER_COLOR)
 
-        # Create main content frame
-        self.content_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.content_frame.pack(fill="both", expand=True)
-        
-        # Configure content frame grid
-        self.content_frame.grid_rowconfigure(4, weight=1)  # Give weight to the last row
-        self.content_frame.grid_columnconfigure(0, weight=1)
-        
         # Create YouPro label frame
-        self.youpro_frame = ctk.CTkFrame(self.content_frame, fg_color="transparent")
-        self.youpro_frame.pack(fill="x", padx=20, pady=(20, 10))
+        self.youpro_frame = ctk.CTkFrame(self, fg_color="transparent")
+        self.youpro_frame.pack(fill="x", padx=20, pady=(15, 10))
         
         # Add YouPro text
         self.youpro_label = ctk.CTkLabel(
@@ -74,18 +66,28 @@ class MainPage(ctk.CTkFrame):
         )
         self.youpro_label.pack(anchor="w")
         
-        # Add yellow underline (only under the text)
+        # Add yellow underline
         self.youpro_underline = ctk.CTkFrame(
             self.youpro_frame,
             height=3,
-            width=80,  # Width to match "YouPro" text
-            fg_color="#FFB74D"  # Yellow color
+            width=80,
+            fg_color="#FFB74D"
         )
         self.youpro_underline.pack(anchor="w", pady=(2, 0))
+
+        # Create loading overlay
+        self.loading_overlay = ctk.CTkFrame(self, fg_color="#1e1e1e")
+        self.loading_label = ctk.CTkLabel(
+            self.loading_overlay,
+            text="Loading...",
+            font=ctk.CTkFont(family="Segoe UI", size=16),
+            text_color="#ffffff"
+        )
+        self.loading_label.pack(expand=True)
         
-        # URL Entry frame with centered content
-        self.url_frame = ctk.CTkFrame(self.content_frame, fg_color=DARKER_COLOR)
-        self.url_frame.pack(fill="x", padx=20, pady=(10, 10))
+        # URL Entry frame
+        self.url_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR)
+        self.url_frame.pack(fill="x", padx=10, pady=(20, 10))
         
         # Create a sub-frame for all controls to keep them together
         self.controls_frame = ctk.CTkFrame(self.url_frame, fg_color=DARKER_COLOR)
@@ -139,33 +141,17 @@ class MainPage(ctk.CTkFrame):
         
         # Home page container
         self.home_frame = ctk.CTkFrame(
-            master=self.content_frame,
+            master=self,
             fg_color="transparent"
         )
 
         # Welcome header
-        self.header_frame = ctk.CTkFrame(self.home_frame, fg_color="transparent")
-        self.header_frame.pack(pady=(30, 20))
-        
         self.header_label = UIHelper.create_label(
-            self.header_frame,
+            self.home_frame,
             text="Welcome to YouTube Clipping",
             font=("Segoe UI", 24, "bold")
         )
-        self.header_label.pack()
-
-        # Yellow underline (starts with 0 width)
-        self.header_underline = ctk.CTkFrame(
-            self.header_frame,
-            height=3,
-            width=0,
-            fg_color="#FFB74D",
-            corner_radius=2
-        )
-        self.header_underline.place(relx=0.5, rely=1, anchor="s")
-        
-        # Start animation after window is fully rendered
-        self.after(100, self.animate_underline)
+        self.header_label.pack(pady=(30, 20))
 
         # Description
         self.description_label = UIHelper.create_label(
@@ -180,9 +166,9 @@ class MainPage(ctk.CTkFrame):
         self.recent_frame = ctk.CTkFrame(
             master=self.home_frame,
             fg_color="#1e1e1e",
-            border_width=1,
-            border_color="#2d2d2d",
-            corner_radius=15
+            corner_radius=15,
+            border_width=2,
+            border_color="#3f3f3f"
         )
         self.recent_frame.pack(fill="x", padx=20, pady=10)
 
@@ -202,9 +188,11 @@ class MainPage(ctk.CTkFrame):
 
         # Preview Frame with modern card design
         self.preview_frame = ctk.CTkFrame(
-            self.content_frame,
+            self,
             fg_color="#1e1e1e",
-            corner_radius=15
+            corner_radius=15,
+            border_width=2,
+            border_color="#3f3f3f"
         )
         self.preview_frame.pack_forget()  # Hide by default
         
@@ -442,13 +430,45 @@ class MainPage(ctk.CTkFrame):
             # Thread will check cancelled flag and stop
             
     def paste_url(self):
-        """Paste URL from clipboard"""
+        """Paste URL from clipboard and process it immediately"""
         try:
-            url = self.clipboard_get()
-            self.url_entry.delete(0, "end")
-            self.url_entry.insert(0, url)
-        except:
-            pass
+            url = self.clipboard_get().strip()
+            if url:
+                logging.info(f"Pasted URL: {url}")
+                self.url_entry.delete(0, 'end')
+                self.url_entry.insert(0, url)
+                # Switch to converter page and process URL
+                self.smooth_transition_to_converter()
+                self.process_url(url)
+        except Exception as e:
+            logging.error(f"Error pasting URL: {e}")
+            
+    def is_valid_youtube_url(self, url):
+        """Check if the URL is a valid YouTube URL"""
+        youtube_pattern = r'(youtube|youtu|youtube-nocookie)\.(com|be)/'
+        video_pattern = r'(watch\?v=|embed/|v/|.+\?v=)?([^&=%\?]{11})'
+        youtube_regex = rf'(https?://)?(www\.)?{youtube_pattern}{video_pattern}'
+        youtube_regex_match = re.match(youtube_regex, url)
+        return bool(youtube_regex_match)
+
+    def process_url(self, url):
+        """Process the YouTube URL and update the preview"""
+        try:
+            logging.info(f"Starting to fetch video info for URL: {url}")
+            video_info = self.fetch_video_info(url)
+            
+            if video_info:
+                # Update preview in main thread
+                self.after(0, lambda: self.update_preview(video_info))
+                self.after(0, self.hide_loading)
+            else:
+                self.after(0, lambda: self.show_error("Could not fetch video information"))
+                self.after(0, self.smooth_transition_to_home)
+                
+        except Exception as e:
+            logging.error(f"Error processing URL: {e}")
+            self.after(0, lambda: self.show_error(str(e)))
+            self.after(0, self.smooth_transition_to_home)
 
     def fetch_video_info(self, url):
         """Fetch video information using yt-dlp"""
@@ -463,11 +483,14 @@ class MainPage(ctk.CTkFrame):
             video_info = {
                 'id': info.get('id', ''),
                 'title': info.get('title', 'Unknown Title'),
-                'channel': info.get('author', 'Unknown Channel'),
+                'channel': info.get('author', 'Unknown channel'),
                 'duration': info.get('duration', 0),
                 'thumbnail_url': info.get('thumbnail', f"https://img.youtube.com/vi/{info.get('id', '')}/maxresdefault.jpg"),
                 'formats': info.get('formats', [])
             }
+            
+            # Show converter page before updating preview
+            self.after(0, self.show_converter_page)
             
             # Update the UI with the fetched information
             self.after(0, lambda: self.update_preview(video_info))
@@ -487,151 +510,122 @@ class MainPage(ctk.CTkFrame):
         
     def update_preview(self, video_info):
         """Update the preview card with video information"""
-        if not video_info:
-            self.thumbnail_label.configure(image=None)
-            self.title_label.configure(text="Enter a YouTube URL to see preview")
-            self.channel_label.configure(text="")
-            self.duration_label.configure(text="")
-            return
-            
         try:
-            # Get thumbnail
-            if 'thumbnail_url' in video_info:
-                response = requests.get(video_info['thumbnail_url'])
-                if response.status_code == 200:
-                    img = Image.open(BytesIO(response.content))
-                    
-                    # Calculate the aspect ratio of the original image
-                    aspect_ratio = img.width / img.height
-                    
-                    # Set fixed dimensions for thumbnail
-                    target_width = 180  # Fixed width for thumbnail
-                    target_height = int(target_width / aspect_ratio)
-                    
-                    # Ensure height is reasonable
-                    max_height = 120
-                    if target_height > max_height:
-                        target_height = max_height
-                        target_width = int(target_height * aspect_ratio)
-                    
-                    # Resize image maintaining aspect ratio
-                    img = UIHelper.resize_image(img, (target_width, target_height))
-                    
-                    # Create CTkImage with the calculated size
-                    ctk_img = ctk.CTkImage(light_image=img, dark_image=img, 
-                                         size=(target_width, target_height))
-                    
-                    # Update thumbnail label
-                    self.thumbnail_label.configure(image=ctk_img)
-                    self.current_thumbnail = ctk_img
-                    
-                    # Configure frame sizes
-                    self.thumbnail_frame.configure(width=target_width + 20)  # Add padding
-                    
-            # Update video information
-            title = video_info.get('title', 'Unknown Title')
-            channel = video_info.get('channel', 'Unknown Channel')
-            duration = video_info.get('duration', 0)
+            if video_info is None:
+                logging.error("update_preview received None video_info")
+                return
+                
+            logging.info("Updating preview UI with video information...")
             
-            # Format duration
-            duration_str = str(timedelta(seconds=int(duration))) if duration else "Unknown duration"
-            if duration_str.startswith('0:'):
-                duration_str = duration_str[2:]  # Remove leading 0: if less than an hour
-            
-            # Update labels
+            # Update text info first for immediate feedback
+            title = video_info.get('title', 'No title available')
             self.title_label.configure(text=title)
+            
+            channel = video_info.get('channel', 'Unknown Channel')
             self.channel_label.configure(text=channel)
-            self.duration_label.configure(text=duration_str)
             
-            # Show preview frame
-            self.preview_frame.pack(fill="x", padx=20, pady=15)
+            duration = timedelta(seconds=int(video_info.get('duration', 0)))
+            self.duration_label.configure(text=str(duration))
             
-        except Exception as e:
-            logging.error(f"Error updating preview: {str(e)}")
-            self.title_label.configure(text="Error loading video preview")
+            # Update thumbnail in background
+            def load_thumbnail():
+                thumbnail_url = video_info.get('thumbnail_url')
+                if thumbnail_url:
+                    try:
+                        response = requests.get(thumbnail_url)
+                        img_data = Image.open(BytesIO(response.content))
+                        img_data = img_data.resize((180, 120), Image.Resampling.LANCZOS)
+                        thumbnail = ctk.CTkImage(img_data, size=(180, 120))
+                        self.after(0, lambda: self.thumbnail_label.configure(image=thumbnail, text=""))
+                    except Exception as e:
+                        logging.error(f"Error loading thumbnail: {e}")
+                        self.after(0, lambda: self.thumbnail_label.configure(text="Thumbnail unavailable"))
             
-    def process_url(self, url):
-        """Process the YouTube URL and update the preview"""
-        try:
-            # Show loading state
-            self.title_label.configure(text="Loading video information...")
-            self.channel_label.configure(text="")
-            self.duration_label.configure(text="")
+            threading.Thread(target=load_thumbnail, daemon=True).start()
             
-            def fetch_info():
-                try:
-                    # Try to get video info
-                    video_info = api.get_video_info(url)
-                    if video_info:
-                        # Transform video info for preview
-                        preview_info = {
-                            'title': video_info.get('title', 'Unknown Title'),
-                            'channel': video_info.get('author', 'Unknown Channel'),
-                            'duration': video_info.get('duration', 0),
-                            'thumbnail_url': video_info.get('thumbnail', '')
-                        }
-                        
-                        # Update UI in main thread
-                        self.after(0, lambda: self.update_preview(preview_info))
-                    else:
-                        self.after(0, lambda: self.show_error("Could not fetch video information"))
-                except Exception as e:
-                    logging.error(f"Error processing URL: {e}")
-                    self.after(0, lambda: self.show_error("Error loading video"))
+            # Stop progress animation
+            self.progress_bar.stop()
+            self.progress_bar.configure(mode="determinate")
             
-            # Start fetch in background
-            threading.Thread(target=fetch_info, daemon=True).start()
+            logging.info("Preview update completed successfully")
             
-        except Exception as e:
-            logging.error(f"Error in process_url: {e}")
-            self.show_error("Invalid URL format")
-
-    def _on_url_change(self, event=None):
-        """Handle URL changes and update preview"""
-        url = self.url_entry.get().strip()
-        if not url:
-            self.update_preview(None)
-            self.show_home_page()
-            return
-            
-        try:
-            # Check if we need to refresh cookies
-            if not os.path.exists(cookie_manager.cookie_file) or os.path.getsize(cookie_manager.cookie_file) < 100:
-                # Run browser automation to get fresh cookies
-                if not self.browser_automation._setup_driver():
-                    logging.error("Failed to setup browser automation")
-                    return
-                cookies = self.browser_automation.get_youtube_cookies()
-                if cookies:
-                    with open(cookie_manager.cookie_file, 'w') as f:
-                        f.write(cookies)
-                if self.browser_automation.driver:
-                    self.browser_automation.driver.quit()
-            
-            # Now try to get video info with cookies
-            video_info = self.fetch_video_info(url)
-            if video_info:
-                # Transform video info for preview
-                preview_info = {
-                    'title': video_info.get('title', 'No title available'),
-                    'author': video_info.get('author', video_info.get('channel', 'Unknown channel')),
-                    'length': video_info.get('duration', 0),
-                    'thumbnail_url': video_info.get('thumbnail', video_info.get('thumbnail_url'))
-                }
-                self.update_preview(preview_info)
-                self.show_converter_page()
-            else:
-                self.update_preview(None)
-                self.show_home_page()
         except Exception as e:
             logging.error(f"Error updating preview: {e}")
-            self.update_preview(None)
-            self.show_home_page()
-            # If error is about cookies, try to refresh them
-            if "Sign in to confirm you're not a bot" in str(e):
-                cookie_manager.clear_cookies()  # Clear existing cookies
-                # Trigger URL change again to get fresh cookies
-                self.after(1000, lambda: self._on_url_change(event))
+            self.show_error("Error updating preview")
+            
+    def show_loading(self, message="Loading..."):
+        """Show loading overlay with message"""
+        self.loading_label.configure(text=message)
+        self.loading_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
+        self.loading_overlay.lift()
+        self.update_idletasks()
+        
+    def hide_loading(self):
+        """Hide loading overlay"""
+        self.loading_overlay.place_forget()
+        self.update_idletasks()
+
+    def smooth_transition_to_converter(self):
+        """Smoothly transition from home to converter page"""
+        # First show loading
+        self.show_loading("Loading video information...")
+        
+        # Pre-configure preview frame
+        self.title_label.configure(text="Loading...")
+        self.channel_label.configure(text="Please wait...")
+        self.duration_label.configure(text="")
+        self.thumbnail_label.configure(image=None, text="Loading thumbnail...")
+        
+        # Pack preview frame before unpacking home
+        if not self.preview_frame.winfo_ismapped():
+            self.preview_frame.pack(fill="x", padx=20, pady=10)
+        
+        # Start progress bar animation
+        self.progress_bar.configure(mode="indeterminate")
+        self.progress_bar.start()
+        
+        # Unpack home frame
+        self.home_frame.pack_forget()
+        self.active_page = "converter"
+        
+        # Update UI
+        self.update_idletasks()
+        
+    def smooth_transition_to_home(self):
+        """Smoothly transition from converter to home page"""
+        # Show loading
+        self.show_loading("Returning to home...")
+        
+        # Stop progress bar
+        self.progress_bar.stop()
+        self.progress_bar.configure(mode="determinate")
+        
+        # Pack home before unpacking preview
+        self.home_frame.pack(fill="both", expand=True)
+        self.preview_frame.pack_forget()
+        self.active_page = "home"
+        
+        # Hide loading
+        self.hide_loading()
+        
+    def _on_url_change(self, event=None):
+        """Handle URL changes in the entry field"""
+        url = self.url_entry.get().strip()
+        
+        # Quick validation of URL format
+        if not url:
+            return
+            
+        # Show loading state immediately if URL looks valid
+        if 'youtube.com' in url or 'youtu.be' in url:
+            # Smooth transition to converter page
+            self.smooth_transition_to_converter()
+            
+            # Start fetching in background
+            threading.Thread(target=lambda: self.process_url(url), daemon=True).start()
+        else:
+            self.show_error("Invalid YouTube URL")
+            self.smooth_transition_to_home()
 
     def show_home_page(self):
         self.preview_frame.pack_forget()
@@ -639,31 +633,18 @@ class MainPage(ctk.CTkFrame):
         self.active_page = "home"
 
     def show_converter_page(self):
+        """Show the converter page with video preview"""
+        # Hide home page
         self.home_frame.pack_forget()
-        self.preview_frame.pack(fill="both", expand=True)
+        
+        # Show preview frame
+        self.preview_frame.pack(fill="x", padx=20, pady=10)
+        
+        # Reset progress
+        self.progress_bar.set(0)
+        self.progress_label.configure(text="")
+        
         self.active_page = "converter"
-
-    def animate_underline(self, current_width=0):
-        """Animate the underline expanding from center"""
-        if current_width == 0:
-            # Initialize width on first run
-            self.target_width = int(self.header_label.winfo_width() * 0.8)
-            
-        if current_width < self.target_width:
-            # Smoother animation with smaller increments
-            new_width = min(current_width + 4, self.target_width)
-            
-            # Update underline width and position
-            self.header_underline.configure(width=new_width)
-            self.header_underline.place(
-                relx=0.5,
-                rely=1,
-                anchor="s",
-                width=new_width
-            )
-            
-            # Continue animation (smoother with 10ms)
-            self.after(10, lambda: self.animate_underline(new_width))
 
     @staticmethod
     def open(parent_frame, app=None):

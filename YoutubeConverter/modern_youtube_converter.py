@@ -78,7 +78,7 @@ class YoutubeConverterApp(ctk.CTk):
         self.tk.call('source', os.path.join(fonts_dir, 'material-icons.tcl'))
         
         # Configure window
-        self.title("")  # Empty title
+        self.title("")  # Remove window title since we're using custom title bar
         self.geometry("800x600")
         self.corner_radius = 15  # Add rounded corners to the main window
         self.minsize(800, 600)
@@ -88,12 +88,12 @@ class YoutubeConverterApp(ctk.CTk):
         # Create title bar frame with border
         self.title_bar = ctk.CTkFrame(
             self, 
-            height=35, 
+            height=30,
             fg_color=self.theme.bg,
             border_width=2,
             border_color="#3f3f3f"
         )
-        self.title_bar.grid(row=0, column=0, columnspan=2, sticky="ew", padx=0, pady=0)
+        self.title_bar.grid(row=0, column=0, columnspan=2, sticky="nsew", padx=0, pady=0)
         self.title_bar.grid_propagate(False)
         
         # Configure title bar grid
@@ -103,8 +103,8 @@ class YoutubeConverterApp(ctk.CTk):
         self.menu_button = ctk.CTkButton(
             self.title_bar,
             text="☰",
-            width=35,
-            height=35,
+            width=30,
+            height=30,
             corner_radius=0,
             fg_color="transparent",
             text_color="#ffffff",
@@ -122,8 +122,8 @@ class YoutubeConverterApp(ctk.CTk):
         self.minimize_button = ctk.CTkButton(
             self.control_buttons_frame,
             text="─",
-            width=35,
-            height=35,
+            width=30,
+            height=30,
             corner_radius=0,
             fg_color="transparent",
             text_color="#ffffff",
@@ -137,8 +137,8 @@ class YoutubeConverterApp(ctk.CTk):
         self.close_button = ctk.CTkButton(
             self.control_buttons_frame,
             text="✕",
-            width=35,
-            height=35,
+            width=30,
+            height=30,
             corner_radius=0,
             fg_color="transparent",
             text_color="#ffffff",
@@ -149,8 +149,8 @@ class YoutubeConverterApp(ctk.CTk):
         self.close_button.grid(row=0, column=1, sticky="e")
 
         # Bind dragging events to title bar
-        self.title_bar.bind("<Button-1>", self.start_move)
-        self.title_bar.bind("<B1-Motion>", self.on_move)
+        self.title_bar.bind("<Button-1>", self.start_drag)
+        self.title_bar.bind("<B1-Motion>", self.on_drag)
         
         # Configure grid weights for better resizing
         self.grid_rowconfigure(0, weight=0)  # Title bar row
@@ -198,35 +198,22 @@ class YoutubeConverterApp(ctk.CTk):
         self.sidebar.add_menu_item("Settings", "⚙️", self.open_settings)
         self.sidebar.add_menu_item("Downloads", "📥", self.open_downloads)
         self.sidebar.add_menu_item("Themes", "🎨", self.open_themes)
-        self.sidebar.add_menu_item("Clipping", "🎬", self.open_clipping)
+        self.sidebar.add_menu_item("Clipping", "✂️", self.open_clipping)
         self.sidebar.add_menu_item("Statistics", "📊", self.open_statistics)
         self.sidebar.add_menu_item("About", "ℹ️", self.open_about)
         self.sidebar.add_menu_item("Help", "❓", self.open_help)
-    
+        
     def _create_header(self) -> None:
-        """Create the header with menu button and title"""
+        """Create the header with title"""
         # Create header frame
         self.header_frame = ctk.CTkFrame(self, fg_color=DARKER_COLOR, height=60)
         self.header_frame.grid(row=1, column=0, sticky="ew", padx=0, pady=0)
-        self.header_frame.grid_columnconfigure(1, weight=1)
+        self.header_frame.grid_columnconfigure(0, weight=1)  # Make the title frame expand
         self.header_frame.grid_propagate(False)
-        
-        # Menu button
-        self.menu_button = ctk.CTkButton(
-            self.header_frame,
-            text="",
-            width=40,
-            height=40,
-            command=self.toggle_sidebar,
-            fg_color="transparent",
-            hover_color="#2a2a2a",
-            font=ctk.CTkFont(size=20)
-        )
-        self.menu_button.grid(row=0, column=0, padx=(10, 0), pady=10)
         
         # Create title frame
         self.title_frame = ctk.CTkFrame(self.header_frame, fg_color="transparent")
-        self.title_frame.grid(row=0, column=1, sticky="w", padx=(10, 0), pady=10)
+        self.title_frame.grid(row=0, column=0, sticky="w", padx=20, pady=10)  # Increased left padding
         
         # Title label
         self.title_label = ctk.CTkLabel(
@@ -272,22 +259,22 @@ class YoutubeConverterApp(ctk.CTk):
         animate_step(0)
     
     def toggle_sidebar(self):
-        """Toggle the sidebar visibility"""
-        if self.sidebar_visible:
-            self.hide_sidebar()
-        else:
-            self.show_sidebar()
+        """Toggle the sidebar with animation"""
+        if not hasattr(self, 'sidebar_visible'):
+            self.sidebar_visible = False
             
+        if not self.sidebar_visible:
+            # Show sidebar before animation
+            self.sidebar.place(relx=1.0, rely=0, relheight=1, anchor="ne")
+            self.animate_sidebar(True)
+        else:
+            self.animate_sidebar(False)
+    
     def hide_sidebar(self):
         """Hide the sidebar with animation"""
         if self.sidebar_visible and not self.animating:
             self.animate_sidebar(False)
-            
-    def show_sidebar(self):
-        """Show the sidebar with animation"""
-        if not self.sidebar_visible and not self.animating:
-            self.animate_sidebar(True)
-            
+
     def _on_configure(self, event):
         """Handle window configuration changes"""
         # Save window position and size to settings
@@ -483,20 +470,36 @@ class YoutubeConverterApp(ctk.CTk):
             logger.error(f"Error during app closing: {e}")
             self.destroy()
 
-    def start_move(self, event):
-        self.x = event.x
-        self.y = event.y
-
-    def on_move(self, event):
-        deltax = event.x - self.x
-        deltay = event.y - self.y
-        x = self.winfo_x() + deltax
-        y = self.winfo_y() + deltay
+    def start_drag(self, event):
+        """Start window drag operation"""
+        self._drag_start_x = event.x_root
+        self._drag_start_y = event.y_root
+        
+    def on_drag(self, event):
+        """Handle window drag operation"""
+        # Calculate the distance moved
+        delta_x = event.x_root - self._drag_start_x
+        delta_y = event.y_root - self._drag_start_y
+        
+        # Get the current window position
+        x = self.winfo_x() + delta_x
+        y = self.winfo_y() + delta_y
+        
+        # Move the window
         self.geometry(f"+{x}+{y}")
+        
+        # Update the start position
+        self._drag_start_x = event.x_root
+        self._drag_start_y = event.y_root
 
     def minimize_window(self):
-        self.wm_state('iconic')
-    
+        """Minimize the window"""
+        try:
+            self.update_idletasks()
+            self.state('iconic')
+        except Exception as e:
+            logger.error(f"Error minimizing window: {e}")
+
     def toggle_maximize(self):
         """Toggle between maximized and normal window state"""
         if self.attributes('-zoomed'):
@@ -533,8 +536,8 @@ class YoutubeConverterApp(ctk.CTk):
         
         # If click is outside sidebar area, close it
         if event.x_root < sidebar_x or event.x_root > (sidebar_x + sidebar_width):
-            self.hide_sidebar()
-            
+            self.toggle_sidebar()
+
 if __name__ == "__main__":
     app = YoutubeConverterApp()
     app.mainloop()

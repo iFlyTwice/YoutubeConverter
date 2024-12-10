@@ -156,66 +156,78 @@ class YouTubeAPI:
 
     def get_video_info(self, url: str) -> Optional[Dict]:
         """Get video information from URL"""
-        temp_cookie_file = None
         try:
-            # Try to load authentication info first
-            cookies, visitor_data = self._load_auth_info()
+            logging.info(f"Starting to fetch video info for URL: {url}")
             
-            if not cookies or not visitor_data:
-                # If no saved auth info, get new ones through browser automation
-                browser = BrowserAutomation()
-                cookies, visitor_data = browser.get_youtube_auth()
-                
-                if not cookies or not visitor_data:
-                    raise Exception("Failed to get authentication information")
-            
-            # Save cookies to temporary file
-            temp_cookie_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data', 'temp_cookies.txt')
-            os.makedirs(os.path.dirname(temp_cookie_file), exist_ok=True)
-            
-            with open(temp_cookie_file, 'w', encoding='utf-8') as f:
-                f.write(cookies)
-            
-            # Configure yt-dlp with cookies and visitor data
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
+                'dump_single_json': True,  # Just get metadata as JSON
+                'skip_download': True,
+                'no_playlist': True,
                 'extract_flat': True,
-                'cookiefile': temp_cookie_file,
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                    'Accept-Language': 'en-us,en;q=0.5',
-                    'X-YouTube-Client-Name': '1',
-                    'X-YouTube-Client-Version': '2.20231127.04.00',
-                    'X-VISITOR-DATA': visitor_data
-                }
+                'format': None,
+                'force_generic_extractor': False,
+                'ignoreerrors': True,
             }
 
+            # Try to get cookies from cookie manager
+            cookie_file = cookie_manager.get_cookies()
+            if cookie_file and os.path.exists(cookie_file):
+                logging.info(f"Using cookie file: {cookie_file}")
+                ydl_opts['cookiefile'] = cookie_file
+            else:
+                logging.info("No cookie file found, using browser cookies")
+                ydl_opts['cookiesfrombrowser'] = ('chrome',)
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                if info:
-                    return {
-                        "id": info.get('id', ''),
-                        "title": info.get('title', 'Unknown Title'),
-                        "author": info.get('uploader', 'Unknown Channel'),
-                        "thumbnail_url": info.get('thumbnail', ''),
-                        "length": info.get('duration', 0),
-                        "views": info.get('view_count', 0),
-                        "published": info.get('upload_date', None)
-                    }
-                return None
+                logging.info("Extracting video info...")
+                try:
+                    # First try to just extract the video ID and basic info
+                    basic_info = ydl.extract_info(url, download=False, process=False)
+                    logging.info(f"Basic info extracted: {basic_info}")
+                    
+                    if basic_info:
+                        video_info = {
+                            'title': basic_info.get('title', 'Unknown Title'),
+                            'author': basic_info.get('uploader', basic_info.get('channel', 'Unknown Channel')),
+                            'duration': basic_info.get('duration', 0),
+                            'thumbnail': basic_info.get('thumbnail', '')
+                        }
+                        
+                        # If no thumbnail, try to get it from video ID
+                        if not video_info['thumbnail'] and basic_info.get('id'):
+                            video_info['thumbnail'] = f"https://img.youtube.com/vi/{basic_info['id']}/maxresdefault.jpg"
+                        
+                        logging.info(f"Successfully extracted video info: {video_info}")
+                        return video_info
+                    else:
+                        logging.error("No basic info found")
+                        return None
+                        
+                except yt_dlp.utils.ExtractorError as e:
+                    if any(msg in str(e).lower() for msg in ["sign in", "age", "confirm your age", "bot"]):
+                        logging.warning("Access restricted or bot detection. Clearing cookies and retrying...")
+                        cookie_manager.clear_cookies()
+                        ydl_opts['cookiesfrombrowser'] = ('chrome',)
+                        basic_info = ydl.extract_info(url, download=False, process=False)
+                        if basic_info:
+                            video_info = {
+                                'title': basic_info.get('title', 'Unknown Title'),
+                                'author': basic_info.get('uploader', basic_info.get('channel', 'Unknown Channel')),
+                                'duration': basic_info.get('duration', 0),
+                                'thumbnail': basic_info.get('thumbnail', '')
+                            }
+                            if not video_info['thumbnail'] and basic_info.get('id'):
+                                video_info['thumbnail'] = f"https://img.youtube.com/vi/{basic_info['id']}/maxresdefault.jpg"
+                            return video_info
+                    raise
 
         except Exception as e:
-            logging.error(f"Error getting video info: {e}")
+            logging.error(f"Error getting video info: {str(e)}")
+            logging.error(f"Error type: {type(e)}")
+            logging.error(f"Error details: {str(e)}")
             return None
-        finally:
-            # Clean up temporary cookie file
-            if temp_cookie_file and os.path.exists(temp_cookie_file):
-                try:
-                    os.remove(temp_cookie_file)
-                except Exception as e:
-                    logging.error(f"Error removing temporary cookie file: {e}")
 
     def validate_url(self, url: str) -> Tuple[bool, Optional[Dict], Optional[str]]:
         """Validate YouTube URL and get video info"""
